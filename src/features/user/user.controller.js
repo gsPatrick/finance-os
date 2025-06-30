@@ -1,7 +1,12 @@
 // src/user/user.controller.js
 
-const { userService } = require('../../services'); // <--- Nova importação do userService
+// Importa a instância do userService a partir do arquivo central de serviços
+const { userService } = require('../../services'); // <--- Importação corrigida para vir do index central
+
+// Importa o helper catchAsync
 const catchAsync = require('../../modules/helpers/catchAsync.helper'); // <--- A importação da catchAsync DEVE estar aqui
+
+// Importa outros módulos necessários
 const ApiError = require('../../modules/errors/apiError');
 const { Op } = require('sequelize');
 
@@ -12,7 +17,8 @@ const { Op } = require('sequelize');
  */
 const register = catchAsync(async (req, res) => {
   // A validação com Joi já aconteceu no middleware `validate`. `req.body` está limpo.
-  const newUser = await userService.createUser(req.body);
+  // Chama o serviço de usuário na instância importada
+  const newUser = await userService.createUser(req.body); // <--- Chama o método na instância do serviço
 
   // TODO: Considerar fluxo de login automático após registro e retornar token JWT.
   // const { generateToken } = require('../modules/auth/auth.utils');
@@ -53,6 +59,7 @@ const getUsers = catchAsync(async (req, res) => {
      order: sortBy ? [[sortBy.split(':')[0], sortBy.split(':')[1] || 'ASC']] : [['createdAt', 'DESC']]
   };
 
+  // Chama o serviço de usuário na instância importada
   const users = await userService.getUsers(options);
 
   res.status(200).json({
@@ -78,6 +85,7 @@ const getUser = catchAsync(async (req, res) => {
     throw new ApiError(403, 'Você não tem permissão para acessar este perfil.');
   }
 
+  // Chama o serviço de usuário na instância importada
   const user = await userService.getUserById(userId);
   // O userService já lança um ApiError(404) se não encontrar, que será capturado pelo catchAsync
   // e formatado pelo errorMiddleware.
@@ -110,6 +118,7 @@ const updateUser = catchAsync(async (req, res) => {
       delete updateData.role;
   }
 
+  // Chama o serviço de usuário na instância importada
   const updatedUser = await userService.updateUser(userId, updateData);
   // O userService já lança 404 se não encontrar e o errorMiddleware lida com erros de unicidade.
 
@@ -136,6 +145,7 @@ const deleteUser = catchAsync(async (req, res) => {
       throw new ApiError(400, 'Você não pode deletar sua própria conta através desta rota.');
   }
 
+  // Chama o serviço de usuário na instância importada
   await userService.deleteUser(userId);
   // O userService já lança 404 se não encontrar.
 

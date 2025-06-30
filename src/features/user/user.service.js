@@ -2,9 +2,11 @@
 
 const db = require('../../models'); // Importa todos os modelos
 const { Op } = require('sequelize'); // Importa operadores Sequelize para consultas complexas
-const { hashPassword } = require('../../modules/helpers/password.helper'); // Removido comparePassword, pois o login não está neste service
-const ApiError = require('../../modules/errors/apiError');
+const { hashPassword } = require('../../modules/helpers/password.helper'); // Helper para hashear senha
+const ApiError = require('../../modules/errors/apiError'); // Classe de erro customizada
 
+// *** EXPORTAÇÃO CORRETA: Exporta a CLASSE UserService ***
+// src/services/index.js importa esta CLASSE e cria a instância.
 class UserService {
   constructor() {
     this.UserModel = db.User; // Referência ao modelo User
@@ -167,4 +169,5 @@ class UserService {
   }
 }
 
-module.exports = UserService; // <<-- Voltar a exportar a CLASSE
+// Exporta a CLASSE para que src/services/index.js possa instanciá-la
+module.exports = UserService; // <<-- EXPORTA A CLASSE
