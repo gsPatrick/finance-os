@@ -1,6 +1,8 @@
 // src/category/category.controller.js
 
 const { categoryService } = require('../../services');
+console.log('TYPEOF categoryService:', typeof categoryService); // Deve imprimir 'object'
+
 const catchAsync = require('../../modules/helpers/catchAsync.helper');
 const ApiError = require('../../modules/errors/apiError');
 const { Op } = require('sequelize');

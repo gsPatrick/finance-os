@@ -1,6 +1,8 @@
 // src/account/account.controller.js
 
 const { accountService } = require('../../services');
+console.log('TYPEOF accountService:', typeof accountService); // Deve imprimir 'object'
+
 const catchAsync = require('../../modules/helpers/catchAsync.helper');
 const ApiError = require('../../modules/errors/apiError'); // Para lançar erros específicos se necessário
 const { Op } = require('sequelize'); // Para construir filtros Sequelize
