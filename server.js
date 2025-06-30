@@ -4,8 +4,6 @@ const app = require('./app'); // Importa a aplicação Express configurada (src/
 const db = require('./src/models'); // Importa a instância do Sequelize e modelos (src/models/index.js)
 const scheduler = require('./src/jobs/scheduler'); // Importa o nosso agendador de tarefas (src/jobs/scheduler.js)
 
-
-// 3. Lê a porta da aplicação a partir das variáveis de ambiente
 const PORT = process.env.PORT || 82; // Usei 82 conforme seu log anterior, ajuste se necessário
 
 /**
@@ -30,7 +28,8 @@ const startServer = async () => {
     // 3. Inicia os jobs agendados (ex: efetivação de transações, fechamento de faturas)
     // O agendador pode depender dos modelos estarem sincronizados.
     scheduler.start();
-    console.log(`Agendador de tarefas iniciado com ${scheduler.getJobs().length} job(s).`); // Opcional: logar quantos jobs foram iniciados
+    // *** REMOVIDA A LINHA QUE CHAMA scheduler.getJobs() ***
+    // console.log(`Agendador de tarefas iniciado com ${scheduler.getJobs().length} job(s).`); // <--- REMOVIDA
 
     // 4. Inicia o servidor Express para aceitar requisições HTTP
     const server = app.listen(PORT, () => {
@@ -39,10 +38,16 @@ const startServer = async () => {
 
      // Adiciona lógica para desligamento gracioso se o agendador ou banco falharem após iniciar o server
      // Isso evita que o processo continue rodando em um estado inconsistente.
-     scheduler.on('error', (err) => {
-         console.error('[SERVER] Erro no agendador de tarefas:', err);
-         shutdown('Scheduler Error'); // Desliga o servidor em caso de erro no scheduler
-     });
+     // Verifique se o objeto scheduler emite eventos de 'error'.
+     if (typeof scheduler.on === 'function') { // Verifica se 'on' é uma função (se é um EventEmitter)
+         scheduler.on('error', (err) => {
+             console.error('[SERVER] Erro no agendador de tarefas:', err);
+             shutdown('Scheduler Error'); // Desliga o servidor em caso de erro no scheduler
+         });
+     } else {
+         console.warn('[SERVER] Objeto agendador não parece ser um EventEmitter. Não será possível monitorar erros do agendador.');
+     }
+
 
   } catch (error) {
     console.error('[SERVER] Erro fatal ao iniciar o servidor:', error);
@@ -62,30 +67,37 @@ const shutdown = async (signal) => {
 
     try {
         // Para todos os jobs agendados
-        if (scheduler.running) { // Verifica se o agendador está rodando antes de tentar parar
+        // Verifique se o scheduler tem a propriedade 'running' e o método 'stop'.
+        if (scheduler && typeof scheduler.stop === 'function') {
              scheduler.stop();
              console.log('[SERVER] Agendador de tarefas parado.');
+        } else {
+            console.warn('[SERVER] Agendador de tarefas não pôde ser parado gracefulmente.');
         }
 
 
         // Feche a conexão com o banco de dados
-        // Pode ser necessário fechar a conexão sequelize explicitamente para um desligamento limpo.
         // Seus jobs e requisições precisam de conexões. Verifique a documentação do Sequelize para fechar.
-        // await db.sequelize.close(); // Exemplo, verifique a API do Sequelize
+        // Adicione lógica para fechar a conexão Sequelize aqui, se necessário.
+        // Exemplo hipotético (verifique a API real do seu db):
+        // if (db && db.sequelize && typeof db.sequelize.close === 'function') {
+        //     await db.sequelize.close();
+        //     console.log('[SERVER] Conexão com o banco de dados fechada.');
+        // }
 
 
         // Feche o servidor HTTP (se você armazenou a referência na variável 'server')
-        // server.close(() => {
-        //     console.log('[SERVER] Servidor HTTP fechado.');
-        //     process.exit(0); // Encerra o processo após fechar o servidor HTTP
-        // });
-
-         // Se não tiver um método de fechamento explícito para o servidor HTTP ou sequelize,
-         // ou se a lógica de fechamento for síncrona ou lidar com suas próprias promises/callbacks,
-         // você pode simplesmente logar e sair, confiando no gerenciador de processo (como Docker, PM2, etc.)
-         // para fazer o desligamento forçado se necessário após um timeout.
-         console.log('[SERVER] Desligamento gracioso concluído. Saindo do processo.');
-         process.exit(0);
+        // Exemplo hipotético (verifique a API real do seu servidor http):
+        // if (server && typeof server.close === 'function') {
+        //     server.close(() => {
+        //         console.log('[SERVER] Servidor HTTP fechado.');
+        //         process.exit(0); // Encerra o processo após fechar o servidor HTTP
+        //     });
+        // } else {
+           // Se não houver um método de fechamento explícito ou se for assíncrono e precisar de um await:
+           console.log('[SERVER] Desligamento gracioso concluído. Saindo do processo.');
+           process.exit(0);
+        // }
 
 
     } catch (error) {

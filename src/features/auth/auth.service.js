@@ -5,11 +5,12 @@ const { comparePassword } = require('../../modules/helpers/password.helper'); //
 const { generateToken } = require('../../modules/auth/auth.utils'); // Utilitário para JWT
 const ApiError = require('../../modules/errors/apiError'); // Classe de erro customizada
 
-// *** IMPORTAÇÃO CORRETA: Importa a INSTÂNCIA do userService a partir do arquivo central de serviços ***
-const { userService } = require('../../services'); // <-- Importação corrigida para vir do index central
+// *** IMPORTAÇÃO CORRETA: Importa o objeto 'services' completo a partir do arquivo central ***
+// Isso resolve a dependência circular. NÃO desestruture 'userService' ou outros serviços aqui.
+const services = require('../../services'); // <-- Importa o objeto { userService, authService, ... }
 
 // Remove a importação direta do arquivo de serviço, pois agora importamos a instância do index central
-// const userService = require('../user/user.service'); // <-- REMOVIDO/COMENTADO
+// const userService = require('../user/user.service'); // <-- ESTA LINHA DEVE SER REMOVIDA OU COMENTADA
 
 
 class AuthService {
@@ -22,8 +23,9 @@ class AuthService {
    */
   async login(email, password) {
     // 1. Encontrar o usuário pelo email, incluindo a senha para comparação
-    // Agora 'userService' é a INSTÂNCIA correta importada de src/services/index.js
-    const user = await userService.getUserByEmailWithPassword(email); // <--- Esta chamada agora usa a instância correta
+    // *** ACESSE o userService através do objeto 'services' importado ***
+    // Isso garante que a instância do userService esteja disponível quando a função login for chamada.
+    const user = await services.userService.getUserByEmailWithPassword(email); // <--- Acesso corrigido
 
     // 2. Verificar se o usuário existe e se a senha está correta
     // A verificação é feita em duas etapas para evitar "timing attacks" e não revelar se o email existe.
