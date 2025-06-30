@@ -22,11 +22,6 @@ console.log('[services/index.js] Importing InvestmentService class');
 const InvestmentService = require('../features/investment/investment.service'); // Caminho corrigido assumindo src/investment
 console.log('[services/index.js] Importing AuthService class');
 const AuthService = require('../features/auth/auth.service'); // Caminho corrigido assumindo src/auth
-
-// Crie instâncias dos serviços a partir das classes importadas
-// Exportamos diretamente um objeto com as instâncias para serem usadas em toda a aplicação.
-// Ao fazer "require('../features/./features/services')", você receberá este objeto com as instâncias prontas.
-
 console.log('[services/index.js] Instantiating UserService');
 const userServiceInstance = new UserService();
 
