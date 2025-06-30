@@ -3,7 +3,7 @@ require('dotenv').config(); // Carrega variáveis de ambiente do .env
 const app = require('./app'); // Importa a aplicação Express configurada (src/app.js)
 const db = require('./src/models'); // Importa a instância do Sequelize e modelos (src/models/index.js)
 const scheduler = require('./src/jobs/scheduler'); // Importa o nosso agendador de tarefas (src/jobs/scheduler.js)
-// 3. Lê a porta da aplicação a partir das variáveis de ambiente
+/ 3. Lê a porta da aplicação a partir das variáveis de ambiente
 const PORT = process.env.PORT || 82; // Usei 82 conforme seu log anterior, ajuste se necessário
 
 /**
@@ -29,11 +29,8 @@ const startServer = async () => {
     // O agendador pode depender dos modelos estarem sincronizados.
     console.log('Iniciando agendador de tarefas...'); // Log antes de iniciar o scheduler
     scheduler.start();
-    // *** REMOVIDA A CHAMADA scheduler.getJobs() ***
-    // A linha abaixo causava o TypeError e foi removida.
+    // *** LINHA QUE CAUSAVA O TypeError FOI REMOVIDA AQUI ***
     // console.log(`Agendador de tarefas iniciado com ${scheduler.getJobs().length} job(s).`);
-
-    // *** ADICIONADO LOG APÓS start(), se necessário confirmar que foi chamado ***
     console.log('Agendador de tarefas iniciado.');
 
 
