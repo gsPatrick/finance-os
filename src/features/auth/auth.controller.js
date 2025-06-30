@@ -1,6 +1,11 @@
 // src/auth/auth.controller.js (MODIFICADO para incluir registro)
 
-const { authService } = require('../../services'); // Importa a instância do authService
+const { authService } = require('../../services');
+console.log('[auth.controller.js] Imported authService:', authService); // Veja o que ele imprime
+console.log('[auth.controller.js] Imported authService.userService:', authService.userService ? 'defined' : 'undefined'); // Veja se userService está lá
+console.log('[auth.controller.js] Imported authService.accountService:', authService.accountService ? 'defined' : 'undefined'); // Veja se accountService está lá
+
+// ... restante do código
 const catchAsync = require('../../modules/helpers/catchAsync.helper');
 
 console.log('[auth.controller.js] File loaded');
