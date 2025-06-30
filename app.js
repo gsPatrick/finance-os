@@ -3,42 +3,38 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
-// Caminhos relativos a partir de 'src/' (certifique-se de que estes arquivos existem)
-const apiRoutes = require('./src/routes/index'); // Importa o roteador principal
-const errorMiddleware = require('./src/modules/errors/error.middleware'); // Importa o middleware de erro
-const ApiError = require('./src/modules/errors/apiError'); // Importa a classe de erro customizada
+// Caminhos relativos a partir de 'src/'
+const apiRoutes = require('./src/routes/index'); 
+const errorMiddleware = require('./src/modules/errors/error.middleware');
+const ApiError = require('./src/modules/errors/apiError');
 
 const app = express();
 
-// Middlewares de Segurança e Utilidades
+// Middlewares
 app.use(helmet());
+app.use(cors({ origin: '*' }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// *** CONFIGURAÇÃO TRUST PROXY ***
-// O warning ERR_ERL_PERMISSIVE_TRUST_PROXY ocorre porque 'trust proxy' está como 'true'.
-// 'true' significa confiar em *qualquer* cabeçalho X-Forwarded-For, o que pode ser inseguro.
-// Para DEV local ou sem proxy, use 'false'.
-// Para produção atrás de 1 proxy, use '1'.
-// Para produção atrás de proxies específicos, use um array de IPs ou CIDRs.
-// Mantenho como 'true' pois foi o que você forneceu, mas SAIBAM que isso pode gerar o warning e precisa ser ajustado para PROD.
-app.set('trust proxy', true); // <-- Ajuste conforme sua infraestrutura de deployment
+const limiter = rateLimit({
+	windowMs: 15 * 60 * 1000,
+	max: 100,
+	standardHeaders: true,
+	legacyHeaders: false,
+    message: { status: 'error', message: 'Muitas requisições enviadas deste IP, por favor tente novamente em 15 minutos.' },
+});
+app.use(limiter);
 
-app.use(cors({ origin: '*' })); // Permite CORS de qualquer origem (ajustar em produção)
-
-app.use(express.json()); // Middleware para parsear JSON no body
-app.use(express.urlencoded({ extended: true })); // Middleware para parsear URL-encoded no body
-
-// --- Definição das Rotas ---
-// Todas as rotas definidas em src/routes/index.js serão prefixadas com '/' (raiz)
-// Se quiser prefixar com /api/v1, mude para app.use('/api/v1', apiRoutes);
+// Rotas da API
 app.use('/', apiRoutes);
 
-// --- Tratamento de Rotas Não Encontradas (404) ---
+// Tratamento de Erros
 app.use((req, res, next) => {
   next(new ApiError(404, 'Rota não encontrada.'));
 });
 
-// --- Tratamento Centralizado de Erros ---
 app.use(errorMiddleware);
 
 module.exports = app;
