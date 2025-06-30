@@ -1,13 +1,13 @@
-// src/modules/validation/schemas/transaction.validation.js (COMPLETO com forecast e regras when)
+// src/modules/validation/schemas/transaction.validation.js (FINAL COMPLETO)
 
-const Joi = require('joi');
+const Joi = require('joi'); // Variável Joi importada
 
 // Esquema base para o ID da transação nos parâmetros
 const transactionIdParam = Joi.object({
   transactionId: Joi.number().integer().positive().required(),
 });
 
-// Esquema para os query parameters na busca de transações (mantido)
+// Esquema para os query parameters na busca de transações
 const getTransactionsQuery = Joi.object({
   type: Joi.string().valid('income', 'expense').optional(), // Filtrar por tipo
   status: Joi.string().valid('pending', 'cleared', 'scheduled').optional(), // Filtrar por status
@@ -83,7 +83,7 @@ const createTransaction = Joi.object({
   // A condição 'is: true' só é satisfeita se o campo 'recurring' estiver presente E for true.
 }).when('recurring', {
     is: true, // Condição: O campo 'recurring' existe e é true
-    then: J.object({
+    then: Joi.object({ // Use Joi.object
         installment: Joi.valid(false).required() // Então, 'installment' deve ser explicitamente 'false' e requerido.
     }).messages({ // Mensagens personalizadas para este caso
         'any.required': 'O campo "installment" deve ser explicitamente false quando "recurring" é true.',
@@ -93,14 +93,13 @@ const createTransaction = Joi.object({
 // Regra: Se 'installment' for TRUE, 'recurring' DEVE ser FALSE e estar presente.
 .when('installment', {
     is: true, // Condição: O campo 'installment' existe e é true
-    then: Joi.object({
+    then: Joi.object({ // Use Joi.object
         recurring: Joi.valid(false).required() // Então, 'recurring' deve ser explicitamente 'false' e requerido.
     }).messages({ // Mensagens personalizadas para este caso
         'any.required': 'O campo "recurring" deve ser explicitamente false quando "installment" é true.',
         'any.only': 'O campo "recurring" deve ser false quando "installment" é true.',
     }),
 });
-// Removido .nand(), .oxor(). As regras 'when' combinadas cuidam da exclusividade.
 
 
 // Esquema para atualização de transação (aplicando a mesma lógica)
@@ -138,7 +137,7 @@ const updateTransaction = Joi.object({
     then: Joi.object({
         recurring: Joi.valid(false).required()
     }),
-}).min(1); // Garante que pelo menos um campo esteja presente para atualização
+}).min(1);
 
 
 // Exporta todos os esquemas relevantes
