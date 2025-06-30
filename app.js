@@ -1,4 +1,4 @@
-// src/app.js
+// src/app.js (CORREÇÃO na importação do errorMiddleware)
 
 const express = require('express');
 const cors = require('cors');
@@ -6,9 +6,11 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit'); // Importa o rateLimit
 
 // Caminhos relativos a partir de 'src/'
-const apiRoutes = require('./src/routes/index'); // <-- Corrigido o caminho (era './src/routes/index')
-const { errorMiddleware } = require('./src/modules/errors/error.middleware'); // <--- IMPORTA A FUNÇÃO USANDO DESESTRUTURAÇÃO
-const ApiError = require('./src/modules/errors/apiError');
+const apiRoutes = require('./src/routes/index'); // <-- Assumindo que apiRoutes está em src/routes/index.js
+// const { errorMiddleware } = require('./src/modules/errors/error.middleware'); // <--- LINHA ANTIGA COM ERRO
+const errorMiddleware = require('./src/modules/errors/error.middleware'); // <--- CORRIGIDO: IMPORTA A FUNÇÃO DIRETAMENTE
+const ApiError = require('./src/modules/errors/apiError'); // Assumindo que ApiError está em src/modules/errors
+
 
 const app = express();
 
@@ -36,21 +38,24 @@ const limiter = rateLimit({
 });
 
 // Aplica o middleware de rate limit a todas as rotas
-app.use(limiter); // <-- O rate limit é aplicado ANTES de definir as rotas
+app.use(limiter);
 
 
 // Rotas da API
 // Certifique-se de que './routes/index' aponta corretamente para o arquivo src/routes/index.js
-// Parece que em app.js o caminho correto seria './routes' se index.js está dentro de routes.
 app.use('/', apiRoutes); // Ou app.use('/api/v1', apiRoutes); dependendo da sua estrutura de URL
 
+
 // Tratamento de Rotas Não Encontradas (404)
+// Este middleware SÓ é executado se a rota não foi encontrada pelas rotas definidas acima
 app.use((req, res, next) => {
   next(new ApiError(404, 'Rota não encontrada.'));
 });
 
 // Tratamento Centralizado de Erros
-// Este middleware captura todos os erros que chegam até ele (incluindo ApiErrors e ValidationErrors do rate limit)
-app.use(errorMiddleware);
+// Este middleware captura todos os erros que chegam até ele (incluindo ApiErrors, ValidationErrors, etc.)
+// DEVE ser o último middleware a ser definido.
+app.use(errorMiddleware); // <-- AGORA errorMiddleware É A FUNÇÃO CORRETA
+
 
 module.exports = app;
