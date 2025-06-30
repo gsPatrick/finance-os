@@ -2,7 +2,7 @@
 
 const db = require('../../models');
 const { Op, fn, col, literal } = require('sequelize');
-const { startOfMonth, endOfMonth, addDays, subDays, format } = require('date-fns');
+const { startOfMonth, endOfMonth, addDays, subDays, format, startOfDay, parseISO } = require('date-fns');
 
 class DashboardService {
 
