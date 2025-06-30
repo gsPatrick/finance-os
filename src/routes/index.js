@@ -1,50 +1,65 @@
-// src/routes/index.js (Atualizado)
+// src/services/index.js
 
-const express = require('express');
-const userRoutes = require('../features/user/user.routes');
-const accountRoutes = require('../features/account/account.routes');
-const transactionRoutes = require('../features/transaction/transaction.routes');
-const invoiceRoutes = require('../features/invoice/invoice.routes');
-const categoryRoutes = require('../features/category/category.routes');
-const calendarEventTypeRoutes = require('../features/calendarEventType/calendarEventType.routes');
-const calendarEventRoutes = require('../features/calendarEvent/calendarEvent.routes');
-const investmentRoutes = require('../features/investment/investment.routes'); 
-const authRoutes = require('../features/auth/auth.routes'); // Importa as rotas de autenticação
-const dashboardRoutes = require('../features/dashboard/dashboard.routes'); // Importa as novas rotas
+console.log('[services/index.js] File loaded. Starting service instantiation...');
 
-// Importa rotas de investimento
-// Importe aqui as rotas de outros módulos se necessário (ex: relatórios, settings)
-// const reportRoutes = require('../report/report.routes');
-// const settingRoutes = require('../setting/setting.routes');
-// ...
+// Importe as classes de serviço dos seus respectivos módulos/features
+// Certifique-se de que CADA UM DESTES ARQUIVOS EXPORTA A CLASSE, NÃO A INSTÂNCIA
+console.log('[services/index.js] Importing UserService class');
+const UserService = require('../user/user.service'); // Caminho corrigido assumindo src/user
+console.log('[services/index.js] Importing AccountService class');
+const AccountService = require('../account/account.service'); // Caminho corrigido assumindo src/account
+console.log('[services/index.js] Importing TransactionService class');
+const TransactionService = require('../transaction/transaction.service'); // Caminho corrigido assumindo src/transaction
+console.log('[services/index.js] Importing InvoiceService class');
+const InvoiceService = require('../invoice/invoice.service'); // Caminho corrigido assumindo src/invoice
+console.log('[services/index.js] Importing CategoryService class');
+const CategoryService = require('../category/category.service'); // Caminho corrigido assumindo src/category
+console.log('[services/index.js] Importing CalendarEventTypeService class');
+const CalendarEventTypeService = require('../calendarEventType/calendarEventType.service'); // Caminho corrigido assumindo src/calendarEventType
+console.log('[services/index.js] Importing CalendarEventService class');
+const CalendarEventService = require('../calendarEvent/calendarEvent.service'); // Caminho corrigido assumindo src/calendarEvent
+console.log('[services/index.js] Importing InvestmentService class');
+const InvestmentService = require('../investment/investment.service'); // Caminho corrigido assumindo src/investment
+console.log('[services/index.js] Importing AuthService class');
+const AuthService = require('../auth/auth.service'); // Caminho corrigido assumindo src/auth
 
-const router = express.Router();
+// Crie instâncias dos serviços a partir das classes importadas
+// Exportamos diretamente um objeto com as instâncias para serem usadas em toda a aplicação.
+// Ao fazer "require('../../services')", você receberá este objeto com as instâncias prontas.
 
-const apiVersion = '/api/v1';
+console.log('[services/index.js] Instantiating UserService');
+const userServiceInstance = new UserService();
 
-// Conecta as rotas de cada módulo ao router principal
-router.use(`${apiVersion}/auth`, authRoutes); // Ex: /api/v1/auth/login
-router.use(`${apiVersion}/users`, userRoutes);
-router.use(`${apiVersion}/accounts`, accountRoutes);
-router.use(`${apiVersion}/transactions`, transactionRoutes);
-router.use(`${apiVersion}/invoices`, invoiceRoutes);
-router.use(`${apiVersion}/categories`, categoryRoutes);
-router.use(`${apiVersion}/calendar-event-types`, calendarEventTypeRoutes);
-router.use(`${apiVersion}/calendar-events`, calendarEventRoutes);
-router.use(`${apiVersion}/investments`, investmentRoutes);
-router.use(`${apiVersion}/dashboard`, dashboardRoutes);
+console.log('[services/index.js] Instantiating AccountService');
+const accountServiceInstance = new AccountService();
 
-// Adiciona rotas de investimento
-// Exemplo para outros módulos:
-// router.use(`${apiVersion}/reports`, reportRoutes);
-// router.use(`${apiVersion}/settings`, settingRoutes);
-// ...
+// INSTANCIE AuthService PASSANDO AS DEPENDÊNCIAS NECESSÁRIAS (userService, accountService)
+console.log('[services/index.js] Instantiating AuthService, injecting userService and accountService');
+const authServiceInstance = new AuthService(userServiceInstance, accountServiceInstance); // <-- PASSA A INSTÂNCIA DO ACCOUNT SERVICE AQUI TAMBÉM
 
-
-// Exemplo de rota raiz da API
-router.get('/', (req, res) => {
-    res.send('API Finance OS está funcionando!');
-});
+console.log('[services/index.js] Instantiating other services...');
+const transactionServiceInstance = new TransactionService();
+const invoiceServiceInstance = new InvoiceService();
+const categoryServiceInstance = new CategoryService();
+const calendarEventTypeServiceInstance = new CalendarEventTypeService();
+const calendarEventServiceInstance = new CalendarEventService();
+const investmentServiceInstance = new InvestmentService();
+// DashboardService JÁ exporta uma instância, mantém a importação direta dele.
+const dashboardServiceInstance = require('../features/dashboard/dashboard.service');
+console.log('[services/index.js] All services instantiated.');
 
 
-module.exports = router;
+console.log('[services/index.js] Exporting service instances');
+module.exports = {
+    userService: userServiceInstance, // <-- Instância criada
+    authService: authServiceInstance, // <-- Instância criada (com userService e accountService injetados)
+    accountService: accountServiceInstance,
+    transactionService: transactionServiceInstance,
+    invoiceService: invoiceServiceInstance,
+    categoryService: categoryServiceInstance,
+    calendarEventTypeService: calendarEventTypeServiceInstance,
+    calendarEventService: calendarEventServiceInstance,
+    investmentService: investmentServiceInstance,
+    dashboardService: dashboardServiceInstance, // Exporta a instância já importada
+};
+console.log('[services/index.js] Export complete.');

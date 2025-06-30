@@ -1,7 +1,6 @@
-// src/auth/auth.controller.js
+// src/auth/auth.controller.js (MODIFICADO para incluir registro)
 
-// Importa a instância do authService a partir do arquivo central de serviços
-const { authService } = require('../../services'); // <-- Importação corrigida para vir do index central
+const { authService } = require('../../services'); // Importa a instância do authService
 const catchAsync = require('../../modules/helpers/catchAsync.helper');
 
 console.log('[auth.controller.js] File loaded');
@@ -12,17 +11,13 @@ console.log('[auth.controller.js] File loaded');
  */
 const login = catchAsync(async (req, res) => {
   console.log('[auth.controller.js] login controller called');
-  // O corpo da requisição já foi validado pelo middleware `validate`.
   const { email, password } = req.body;
   console.log('[auth.controller.js] login: Received email:', email, 'password: ***');
 
-  // Chama o serviço de autenticação na instância importada
   console.log('[auth.controller.js] login: Calling authService.login');
   const { user, token } = await authService.login(email, password);
   console.log('[auth.controller.js] login: authService.login returned user and token');
 
-
-  // Envia a resposta de sucesso com os dados do usuário e o token
   console.log('[auth.controller.js] login: Sending 200 response');
   res.status(200).json({
     status: 'success',
@@ -34,7 +29,32 @@ const login = catchAsync(async (req, res) => {
   });
 });
 
+/**
+ * NOVO: Controlador para registrar um novo usuário e criar conta padrão.
+ * Endpoint: POST /api/v1/auth/register
+ */
+const register = catchAsync(async (req, res) => {
+    console.log('[auth.controller.js] register controller called');
+    // req.body já foi validado.
+    const userData = req.body;
+    console.log('[auth.controller.js] register: Received user data:', userData ? { ...userData, password: '***' } : null);
+
+    console.log('[auth.controller.js] register: Calling authService.register');
+    const newUser = await authService.register(userData); // Chama o NOVO método register do authService
+     console.log('[auth.controller.js] register: authService.register returned new user:', newUser ? newUser.id : 'null/undefined');
+
+
+    console.log('[auth.controller.js] register: Sending 201 response');
+    res.status(201).json({ // 201 Created
+        status: 'success',
+        message: 'Usuário registrado e conta padrão criada com sucesso.',
+        data: newUser, // Retorna os dados do usuário (sem senha)
+    });
+});
+
+
 console.log('[auth.controller.js] Exporting controllers');
 module.exports = {
   login,
+  register, // Exporta o novo controlador de registro
 };
