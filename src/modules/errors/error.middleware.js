@@ -16,69 +16,67 @@ const errorMiddleware = (err, req, res, next) => {
   console.error('[error.middleware.js] Error name:', err.name);
   console.error('[error.middleware.js] Error message:', err.message);
   // Log stack trace only for unexpected errors or in dev
-  if (!err.isOperational && !Boom.isBoom(err) || process.env.NODE_ENV === 'development') {
+  // Use the original err object for the stack trace
+  if (!(err instanceof ApiError) && !Boom.isBoom(err) || process.env.NODE_ENV === 'development') {
       console.error('[error.middleware.js] Error stack:', err.stack);
   }
 
 
-  let error = err;
+  let formattedError = err; // Start with the received error
 
-  // Verifica se o erro já é um erro operacional (como ApiError ou Boom)
-  const isOperationalError = error.isOperational || Boom.isBoom(error);
-  console.log('[error.middleware.js] Is operational error:', isOperationalError);
-
-
-  // Se não for um erro operacional, tenta converter
-  if (!isOperationalError) {
-     console.log('[error.middleware.js] Error is not operational, attempting conversion.');
+  // If the error is not an ApiError or a Boom error, attempt to convert specific types
+  if (!(formattedError instanceof ApiError) && !Boom.isBoom(formattedError)) {
+     console.log('[error.middleware.js] Error is not ApiError or Boom, attempting conversion.');
      // Ex: erros do Sequelize, erros de programação inesperados
      // Tenta identificar o tipo de erro para dar um status mais apropriado
-     if (error.name === 'SequelizeValidationError') {
+     if (formattedError.name === 'SequelizeValidationError') {
         console.log('[error.middleware.js] Converting SequelizeValidationError to ApiError 400');
-        // Erros de validação do Sequelize
-         error = new ApiError(400, error.message); // Bad Request
-     } else if (error.name === 'SequelizeUniqueConstraintError') {
+         formattedError = new ApiError(400, formattedError.message); // Bad Request
+     } else if (formattedError.name === 'SequelizeUniqueConstraintError') {
         console.log('[error.middleware.js] Converting SequelizeUniqueConstraintError to ApiError 409');
-        // Erros de unicidade do Sequelize
-         const field = Object.keys(error.fields)[0];
-         const value = error.fields[field];
-         error = new ApiError(409, `O valor "${value}" já existe para o campo "${field}".`); // Conflict
-     } else if (error.name === 'SequelizeForeignKeyConstraintError') {
+         const field = Object.keys(formattedError.fields)[0];
+         const value = formattedError.fields[field];
+         formattedError = new ApiError(409, `O valor "${value}" já existe para o campo "${field}".`); // Conflict
+     } else if (formattedError.name === 'SequelizeForeignKeyConstraintError') {
         console.log('[error.middleware.js] Converting SequelizeForeignKeyConstraintError to ApiError 409');
-        // Erros de chave estrangeira
-         error = new ApiError(409, `Violação de chave estrangeira. Verifique os dados relacionados.`); // Conflict
-     } else if (error.name === 'SequelizeDatabaseError') {
+         formattedError = new ApiError(409, `Violação de chave estrangeira. Verifique os dados relacionados.`); // Conflict
+     } else if (formattedError.name === 'SequelizeDatabaseError') {
         console.log('[error.middleware.js] Converting generic SequelizeDatabaseError to ApiError 500');
-        // Outros erros de banco de dados (mais genérico)
-         error = new ApiError(500, 'Erro no banco de dados.'); // Internal Server Error
-     } else if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+         formattedError = new ApiError(500, 'Erro no banco de dados.'); // Internal Server Error
+     } else if (formattedError.name === 'JsonWebTokenError' || formattedError.name === 'TokenExpiredError') {
          console.log('[error.middleware.js] Converting JWT error to ApiError 401');
-         // Erros de JWT
-         error = new ApiError(401, 'Token inválido ou expirado.'); // Unauthorized
+         formattedError = new ApiError(401, 'Token inválido ou expirado.'); // Unauthorized
      } else {
          console.log('[error.middleware.js] Converting unexpected error to ApiError 500');
-         // Erros genéricos inesperados
          // The stack was already logged above for unexpected errors
-         error = new ApiError(500, 'Ocorreu um erro interno inesperado.'); // Internal Server Error
+         formattedError = new ApiError(500, 'Ocorreu um erro interno inesperado.'); // Internal Server Error
      }
   }
 
-   // Garante que o erro é um erro Boom ou tem a estrutura similar
-   // Use Boom.wrap for operational errors or our converted errors
-   const boomError = Boom.isBoom(error) ? error : (error.isOperational ? Boom.boomify(error, { statusCode: error.statusCode }) : Boom.internal(error.message));
+   // At this point, formattedError is either the original ApiError/Boom,
+   // or a new ApiError created from a specific known error,
+   // or a new generic ApiError(500).
+   // We can now extract the status and payload using Boom's structure properties
+   // which our ApiError class copies.
 
-   const { statusCode, payload } = boomError.output;
-   console.log('[error.middleware.js] Final error output:', { statusCode, payload });
+   const statusCode = formattedError.statusCode || (formattedError.output ? formattedError.output.statusCode : 500);
+   // Ensure we get the message from the boom output payload for consistency
+   const message = (formattedError.output && formattedError.output.payload && formattedError.output.payload.message)
+                   ? formattedError.output.payload.message
+                   : formattedError.message || 'Erro interno do servidor';
 
+
+   console.log('[error.middleware.js] Final formatted error output:', { statusCode, message });
 
    // Envia a resposta de erro formatada
   res.status(statusCode).json({
     status: 'error',
-    statusCode,
-    message: payload.message,
+    statusCode: statusCode, // Use the determined statusCode
+    message: message, // Use the extracted message
     // Opcional: Adicionar detalhes do erro em ambiente de desenvolvimento
-    stack: process.env.NODE_ENV === 'development' ? error.stack : undefined, // Stack trace only in dev
-    // details: error.errors // For SequelizeValidationError details if needed
+    // Use the stack trace from the original err object
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    // details: err.errors // For SequelizeValidationError details if needed (use original err)
   });
 
   console.error('--- END ERROR HANDLER ---\n');
