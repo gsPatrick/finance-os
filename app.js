@@ -6,9 +6,9 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
 // Caminhos relativos a partir de 'src/' (certifique-se de que estes arquivos existem)
-const apiRoutes = require('./routes/index');
-const errorMiddleware = require('./modules/errors/error.middleware');
-const ApiError = require('./modules/errors/apiError');
+const apiRoutes = require('./src/routes/index');
+const errorMiddleware = require('./src/modules/errors/error.middleware');
+const ApiError = require('./src/modules/errors/apiError');
 
 const app = express();
 
