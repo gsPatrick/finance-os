@@ -1,6 +1,6 @@
 // src/transaction/transaction.controller.js
 
-const transactionService = require('./transaction.service');
+const { transactionService } = require('../../services'); // <-- Importação corrigida para vir do index central
 const catchAsync = require('../../modules/helpers/catchAsync.helper');
 const ApiError = require('../../modules/errors/apiError');
 const { Op } = require('sequelize'); // Necessário para construir filtros complexos no service, mas a construção é feita aqui.

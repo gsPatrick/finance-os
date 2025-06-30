@@ -1,7 +1,7 @@
 // src/auth/auth.controller.js
 
 // Importa a instância do authService a partir do arquivo central de serviços
-const { authService } = require('../../services'); // <-- Importação corrigida para vir do index central
+const { TransactionService } = require('../../services'); // <-- Importação corrigida para vir do index central
 const catchAsync = require('../../modules/helpers/catchAsync.helper');
 
 console.log('[auth.controller.js] File loaded');
