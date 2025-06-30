@@ -1,6 +1,6 @@
 // src/auth/auth.controller.js
 
-const authService = require('./auth.service');
+const { authService } = require('../../services/index'); // Ajuste o caminho se necessário, dependendo da estrutura de pastas
 const catchAsync = require('../../modules/helpers/catchAsync.helper');
 
 /**

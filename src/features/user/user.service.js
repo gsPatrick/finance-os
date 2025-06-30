@@ -167,4 +167,4 @@ class UserService {
   }
 }
 
-module.exports = new UserService(); // <<-- CORRETO: Exporta uma INSTÂNCIA da classe UserService
+module.exports = UserService; // <<-- Voltar a exportar a CLASSE

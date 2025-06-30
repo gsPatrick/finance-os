@@ -1,6 +1,6 @@
 // src/user/user.controller.js
 
-const userService = require('./user.service');
+const { userService } = require('../../services/index'); // Ajuste o caminho se necessário
 const catchAsync = require('../../modules/helpers/catchAsync.helper');
 const ApiError = require('../../modules/errors/apiError');
 const { Op } = require('sequelize');
