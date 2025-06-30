@@ -3,7 +3,6 @@ require('dotenv').config(); // Carrega variáveis de ambiente do .env
 const app = require('./app'); // Importa a aplicação Express configurada (src/app.js)
 const db = require('./src/models'); // Importa a instância do Sequelize e modelos (src/models/index.js)
 const scheduler = require('./src/jobs/scheduler'); // Importa o nosso agendador de tarefas (src/jobs/scheduler.js)
-/ 3. Lê a porta da aplicação a partir das variáveis de ambiente
 const PORT = process.env.PORT || 82; // Usei 82 conforme seu log anterior, ajuste se necessário
 
 /**
