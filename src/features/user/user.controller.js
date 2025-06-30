@@ -4,6 +4,7 @@ const services = require('../../services/index'); // Importa o objeto { userServ
 const userService = services.userService; // Extrai o userService da instância centralizadaconst catchAsync = require('../../modules/helpers/catchAsync.helper');
 const ApiError = require('../../modules/errors/apiError');
 const { Op } = require('sequelize');
+const catchAsync = require('../../modules/helpers/catchAsync.helper');
 
 /**
  * Controlador para registrar um novo usuário.
