@@ -1,6 +1,6 @@
 // src/category/category.controller.js
 
-const categoryService = require('./category.service');
+const { categoryService } = require('../../services');
 const catchAsync = require('../../modules/helpers/catchAsync.helper');
 const ApiError = require('../../modules/errors/apiError');
 const { Op } = require('sequelize');

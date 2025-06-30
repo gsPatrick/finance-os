@@ -1,6 +1,6 @@
 // src/calendarEventType/calendarEventType.controller.js
 
-const calendarEventTypeService = require('./calendarEventType.service');
+const { calendarEventTypeService } = require('../../services');
 const catchAsync = require('../../modules/helpers/catchAsync.helper');
 const ApiError = require('../../modules/errors/apiError');
 const { Op } = require('sequelize');

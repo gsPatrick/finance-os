@@ -1,6 +1,6 @@
 // src/invoice/invoice.controller.js
 
-const invoiceService = require('./invoice.service');
+const { invoiceService } = require('../../services');
 const catchAsync = require('../../modules/helpers/catchAsync.helper');
 const ApiError = require('../../modules/errors/apiError');
 const { parseISO } = require('date-fns');

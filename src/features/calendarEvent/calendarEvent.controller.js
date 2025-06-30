@@ -1,6 +1,6 @@
 // src/calendarEvent/calendarEvent.controller.js
 
-const calendarEventService = require('./calendarEvent.service');
+const { calendarEventService } = require('../../services');
 const catchAsync = require('../../modules/helpers/catchAsync.helper');
 const ApiError = require('../../modules/errors/apiError');
 const { parseISO } = require('date-fns');

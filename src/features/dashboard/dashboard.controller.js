@@ -1,6 +1,6 @@
 // src/features/dashboard/dashboard.controller.js
 
-const dashboardService = require('./dashboard.service');
+const { dashboardService } = require('../../services');
 const catchAsync = require('../../modules/helpers/catchAsync.helper');
 
 /**

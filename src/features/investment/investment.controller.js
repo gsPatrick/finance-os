@@ -1,6 +1,6 @@
 // src/investment/investment.controller.js
 
-const investmentService = require('./investment.service');
+const { investmentService } = require('../../services');
 const catchAsync = require('../../modules/helpers/catchAsync.helper');
 const ApiError = require('../../modules/errors/apiError');
 const { Op } = require('sequelize');

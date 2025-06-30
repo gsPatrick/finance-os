@@ -1,6 +1,6 @@
 // src/account/account.controller.js
 
-const accountService = require('./account.service');
+const { accountService } = require('../../services');
 const catchAsync = require('../../modules/helpers/catchAsync.helper');
 const ApiError = require('../../modules/errors/apiError'); // Para lançar erros específicos se necessário
 const { Op } = require('sequelize'); // Para construir filtros Sequelize
