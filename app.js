@@ -5,9 +5,9 @@ const cors = require('cors');
 const helmet = require('helmet');
 
 // Caminhos relativos a partir de 'src/' (certifique-se de que estes arquivos existem)
-const apiRoutes = require('./routes/index'); // Importa o roteador principal
-const errorMiddleware = require('./modules/errors/error.middleware'); // Importa o middleware de erro
-const ApiError = require('./modules/errors/apiError'); // Importa a classe de erro customizada
+const apiRoutes = require('./src/routes/index'); // Importa o roteador principal
+const errorMiddleware = require('./src/modules/errors/error.middleware'); // Importa o middleware de erro
+const ApiError = require('./src/modules/errors/apiError'); // Importa a classe de erro customizada
 
 const app = express();
 
