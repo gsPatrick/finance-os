@@ -10,6 +10,7 @@ const calendarEventTypeRoutes = require('../features/calendarEventType/calendarE
 const calendarEventRoutes = require('../features/calendarEvent/calendarEvent.routes');
 const investmentRoutes = require('../features/investment/investment.routes'); 
 const authRoutes = require('../features/auth/auth.routes'); // Importa as rotas de autenticação
+const dashboardRoutes = require('../features/dashboard/dashboard.routes'); // Importa as novas rotas
 
 // Importa rotas de investimento
 // Importe aqui as rotas de outros módulos se necessário (ex: relatórios, settings)
@@ -30,7 +31,10 @@ router.use(`${apiVersion}/invoices`, invoiceRoutes);
 router.use(`${apiVersion}/categories`, categoryRoutes);
 router.use(`${apiVersion}/calendar-event-types`, calendarEventTypeRoutes);
 router.use(`${apiVersion}/calendar-events`, calendarEventRoutes);
-router.use(`${apiVersion}/investments`, investmentRoutes); // Adiciona rotas de investimento
+router.use(`${apiVersion}/investments`, investmentRoutes);
+router.use(`${apiVersion}/dashboard`, dashboardRoutes);
+
+// Adiciona rotas de investimento
 // Exemplo para outros módulos:
 // router.use(`${apiVersion}/reports`, reportRoutes);
 // router.use(`${apiVersion}/settings`, settingRoutes);
