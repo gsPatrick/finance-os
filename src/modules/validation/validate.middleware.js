@@ -15,7 +15,7 @@ const validate = (schema) => catchAsync((req, res, next) => {
   const validationOptions = {
     abortEarly: false,
     allowUnknown: false,
-    stripUnknown: false, // <-- TEMPORARIAMENTE PARA DEBUG! REVERTA DEPOIS!
+    stripUnknown: true, // <-- TEMPORARIAMENTE PARA DEBUG! REVERTA DEPOIS!
   };
   console.log('[validate.middleware.js] Validation options:', validationOptions);
 
