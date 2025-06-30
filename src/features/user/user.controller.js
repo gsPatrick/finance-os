@@ -14,32 +14,6 @@ console.log('[user.controller.js] File loaded.');
 
 
 /**
- * Controlador para registrar um novo usuário.
- * Endpoint: POST /api/v1/users/register
- */
-const register = catchAsync(async (req, res) => {
-  console.log('[user.controller.js] register controller called');
-  // A validação com Joi já aconteceu no middleware `validate`. `req.body` está limpo.
-  // Chama o serviço de usuário na instância importada
-  console.log('[user.controller.js] register: Calling userService.createUser with body:', req.body);
-  const newUser = await userService.createUser(req.body); // <--- Chama o método na instância do serviço
-  console.log('[user.controller.js] register: userService.createUser returned:', newUser ? 'user object' : 'null/undefined');
-
-
-  // TODO: Considerar fluxo de login automático após registro e retornar token JWT.
-  // const { generateToken } = require('../modules/auth/auth.utils');
-  // const token = generateToken(newUser);
-
-  console.log('[user.controller.js] register: Sending 201 response');
-  res.status(201).json({ // 201 Created
-    status: 'success',
-    message: 'Usuário registrado com sucesso.',
-    data: newUser, // Retorna os dados do usuário (sem senha)
-    // token: token, // Opcional: retornar token
-  });
-});
-
-/**
  * Controlador para buscar todos os usuários.
  * Endpoint: GET /api/v1/users
  * Requer autenticação e autorização de 'admin' (verificada na rota com `checkRole`).
@@ -203,7 +177,6 @@ const deleteUser = catchAsync(async (req, res) => {
 
 console.log('[user.controller.js] Exporting controllers');
 module.exports = {
-  register,
   getUsers,
   getUser,
   updateUser,
