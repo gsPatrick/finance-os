@@ -3,7 +3,7 @@ require('dotenv').config(); // Carrega variáveis de ambiente do .env
 const app = require('./app'); // Importa a aplicação Express configurada (src/app.js)
 const db = require('./src/models'); // Importa a instância do Sequelize e modelos (src/models/index.js)
 const scheduler = require('./src/jobs/scheduler'); // Importa o nosso agendador de tarefas (src/jobs/scheduler.js)
-
+// 3. Lê a porta da aplicação a partir das variáveis de ambiente
 const PORT = process.env.PORT || 82; // Usei 82 conforme seu log anterior, ajuste se necessário
 
 /**
@@ -27,9 +27,15 @@ const startServer = async () => {
 
     // 3. Inicia os jobs agendados (ex: efetivação de transações, fechamento de faturas)
     // O agendador pode depender dos modelos estarem sincronizados.
+    console.log('Iniciando agendador de tarefas...'); // Log antes de iniciar o scheduler
     scheduler.start();
-    // *** REMOVIDA A LINHA QUE CHAMA scheduler.getJobs() ***
-    // console.log(`Agendador de tarefas iniciado com ${scheduler.getJobs().length} job(s).`); // <--- REMOVIDA
+    // *** REMOVIDA A CHAMADA scheduler.getJobs() ***
+    // A linha abaixo causava o TypeError e foi removida.
+    // console.log(`Agendador de tarefas iniciado com ${scheduler.getJobs().length} job(s).`);
+
+    // *** ADICIONADO LOG APÓS start(), se necessário confirmar que foi chamado ***
+    console.log('Agendador de tarefas iniciado.');
+
 
     // 4. Inicia o servidor Express para aceitar requisições HTTP
     const server = app.listen(PORT, () => {
@@ -39,10 +45,11 @@ const startServer = async () => {
      // Adiciona lógica para desligamento gracioso se o agendador ou banco falharem após iniciar o server
      // Isso evita que o processo continue rodando em um estado inconsistente.
      // Verifique se o objeto scheduler emite eventos de 'error'.
-     if (typeof scheduler.on === 'function') { // Verifica se 'on' é uma função (se é um EventEmitter)
+     if (scheduler && typeof scheduler.on === 'function') { // Verifica se 'on' é uma função (se é um EventEmitter)
          scheduler.on('error', (err) => {
              console.error('[SERVER] Erro no agendador de tarefas:', err);
-             shutdown('Scheduler Error'); // Desliga o servidor em caso de erro no scheduler
+             // Considerar um atraso antes de desligar para permitir logs
+             setTimeout(() => shutdown('Scheduler Error'), 1000);
          });
      } else {
          console.warn('[SERVER] Objeto agendador não parece ser um EventEmitter. Não será possível monitorar erros do agendador.');
@@ -51,7 +58,8 @@ const startServer = async () => {
 
   } catch (error) {
     console.error('[SERVER] Erro fatal ao iniciar o servidor:', error);
-    process.exit(1); // Encerra o processo com código de erro
+    // Considerar um atraso antes de sair para permitir logs
+    setTimeout(() => process.exit(1), 1000);
   }
 };
 
@@ -67,7 +75,7 @@ const shutdown = async (signal) => {
 
     try {
         // Para todos os jobs agendados
-        // Verifique se o scheduler tem a propriedade 'running' e o método 'stop'.
+        // Verifique se o scheduler tem o método 'stop'.
         if (scheduler && typeof scheduler.stop === 'function') {
              scheduler.stop();
              console.log('[SERVER] Agendador de tarefas parado.');
@@ -75,18 +83,14 @@ const shutdown = async (signal) => {
             console.warn('[SERVER] Agendador de tarefas não pôde ser parado gracefulmente.');
         }
 
-
-        // Feche a conexão com o banco de dados
-        // Seus jobs e requisições precisam de conexões. Verifique a documentação do Sequelize para fechar.
-        // Adicione lógica para fechar a conexão Sequelize aqui, se necessário.
+        // TODO: Adicionar lógica para fechar a conexão com o banco de dados Sequelize aqui, se necessário.
         // Exemplo hipotético (verifique a API real do seu db):
         // if (db && db.sequelize && typeof db.sequelize.close === 'function') {
         //     await db.sequelize.close();
         //     console.log('[SERVER] Conexão com o banco de dados fechada.');
         // }
 
-
-        // Feche o servidor HTTP (se você armazenou a referência na variável 'server')
+        // TODO: Adicionar lógica para fechar o servidor HTTP (variável 'server') aqui, se necessário.
         // Exemplo hipotético (verifique a API real do seu servidor http):
         // if (server && typeof server.close === 'function') {
         //     server.close(() => {
