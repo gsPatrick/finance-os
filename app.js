@@ -16,6 +16,7 @@ const app = express();
 // Helmet ajuda a proteger sua aplicação de algumas vulnerabilidades conhecidas
 // Definindo cabeçalhos HTTP adequados.
 app.use(helmet());
+app.set('trust proxy', true); // Ou 1, ou um array/string de CIDR
 
 // CORS (Cross-Origin Resource Sharing)
 // Configurado para permitir requisições de QUALQUER origem ('*')
