@@ -1,7 +1,7 @@
 // src/user/user.controller.js
 
-const { userService } = require('../../services/index'); // Ajuste o caminho se necessário
-const catchAsync = require('../../modules/helpers/catchAsync.helper');
+const services = require('../../services/index'); // Importa o objeto { userService, authService, ... }
+const userService = services.userService; // Extrai o userService da instância centralizadaconst catchAsync = require('../../modules/helpers/catchAsync.helper');
 const ApiError = require('../../modules/errors/apiError');
 const { Op } = require('sequelize');
 
