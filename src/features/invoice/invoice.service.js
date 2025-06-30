@@ -352,4 +352,4 @@ class InvoiceService {
       }
 }
 
-module.exports = InvoiceService; // Exporta a CLASSE
+module.exports = InvoiceService; // <<-- DEVE SER ASSIM

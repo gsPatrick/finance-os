@@ -2,9 +2,9 @@
 
 const express = require('express');
 const invoiceController = require('./invoice.controller');
-const authMiddleware = require('../modules/auth/auth.middleware'); // Middleware de autenticação
-const validate = require('../modules/validation/validate.middleware'); // Middleware de validação Joi
-const invoiceValidation = require('../modules/validation/schemas/invoice.validation'); // Esquemas de validação para Invoice
+const authMiddleware = require('../../modules/auth/auth.middleware'); // Middleware de autenticação
+const validate = require('../../modules/validation/validate.middleware'); // Middleware de validação Joi
+const invoiceValidation = require('../../modules/validation/schemas/invoice.validation'); // Esquemas de validação para Invoice
 
 const router = express.Router();
 

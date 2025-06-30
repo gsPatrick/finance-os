@@ -1,7 +1,7 @@
 // src/auth/auth.controller.js
 
 const authService = require('./auth.service');
-const catchAsync = require('../modules/helpers/catchAsync.helper');
+const catchAsync = require('../../modules/helpers/catchAsync.helper');
 
 /**
  * Controlador para o login de usuário.

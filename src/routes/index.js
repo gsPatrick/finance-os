@@ -9,7 +9,7 @@ const categoryRoutes = require('../features/category/category.routes');
 const calendarEventTypeRoutes = require('../features/calendarEventType/calendarEventType.routes');
 const calendarEventRoutes = require('../features/calendarEvent/calendarEvent.routes');
 const investmentRoutes = require('../features/investment/investment.routes'); 
-const authRoutes = require('../auth/auth.routes'); // Importa as rotas de autenticação
+const authRoutes = require('../features/auth/auth.routes'); // Importa as rotas de autenticação
 
 // Importa rotas de investimento
 // Importe aqui as rotas de outros módulos se necessário (ex: relatórios, settings)

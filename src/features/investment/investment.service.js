@@ -193,4 +193,4 @@ class InvestmentService {
 
 }
 
-module.exports = new InvestmentService(); // Exporta uma instância da classe
+module.exports = InvestmentService; // <<-- DEVE SER ASSIM

@@ -196,4 +196,4 @@ class AccountService {
   }
 }
 
-module.exports = new AccountService(); // Exporta uma instância da classe
+module.exports = AccountService; // <<-- DEVE SER ASSIM

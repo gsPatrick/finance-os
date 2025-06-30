@@ -255,4 +255,4 @@ class CalendarEventService {
   }
 }
 
-module.exports = new CalendarEventService(); // Exporta uma instância da classe
+module.exports = CalendarEventService; // <<-- DEVE SER ASSIM

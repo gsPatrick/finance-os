@@ -182,4 +182,4 @@ class CalendarEventTypeService {
 
 }
 
-module.exports = new CalendarEventTypeService(); // Exporta uma instância da classe
+module.exports = CalendarEventTypeService; // <<-- DEVE SER ASSIM

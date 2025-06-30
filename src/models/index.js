@@ -5,9 +5,9 @@
 const fs = require('fs');
 const path = require('path');
 const Sequelize = require('sequelize');
-const process = require('process');
 const env = process.env.NODE_ENV || 'development';
-const config = require(__dirname + '/../config/config.js')[env]; // Ajuste o caminho para config.js
+// Corrija o caminho para o config.js para ser relativo ao arquivo atual
+const config = require(path.join(__dirname, '..', 'config', 'config.js'))[env];
 
 const db = {};
 
@@ -18,7 +18,6 @@ if (config.use_env_variable) {
   sequelize = new Sequelize(config.database, config.username, config.password, config);
 }
 
-// Lê todos os arquivos .js na pasta atual (exceto index.js)
 fs
   .readdirSync(__dirname)
   .filter(file => {
@@ -30,12 +29,28 @@ fs
     );
   })
   .forEach(file => {
-    // Importa o modelo e o adiciona ao objeto db
-    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
-    db[model.name] = model;
+    try {
+      // Log para depuração
+      console.log(`[MODELS] Tentando carregar modelo: ${file}`);
+      
+      const modelDefinition = require(path.join(__dirname, file));
+      
+      // Verifica se o que foi importado é realmente uma função
+      if (typeof modelDefinition !== 'function') {
+        // Se não for, lança um erro claro
+        throw new TypeError(`O arquivo de modelo '${file}' não exporta uma função.`);
+      }
+
+      const model = modelDefinition(sequelize, Sequelize.DataTypes);
+      db[model.name] = model;
+
+    } catch (e) {
+      console.error(`[MODELS] Erro ao carregar o modelo '${file}':`, e.message);
+      // Re-lança o erro para parar a aplicação, já que é um erro crítico
+      throw e;
+    }
   });
 
-// Configura as associações entre os modelos
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);

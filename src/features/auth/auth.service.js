@@ -1,6 +1,6 @@
 // src/auth/auth.service.js
 
-const db = require('../models');
+const db = require('../../models');
 const { comparePassword } = require('../../modules/helpers/password.helper');
 const { generateToken } = require('../../modules/auth/auth.utils');
 const ApiError = require('../../modules/errors/apiError');
@@ -43,4 +43,4 @@ class AuthService {
   // Por simplicidade, deixaremos a rota de registro em `user.routes.js`.
 }
 
-module.exports = new AuthService();
+module.exports = AuthService; // <<-- DEVE SER ASSIM

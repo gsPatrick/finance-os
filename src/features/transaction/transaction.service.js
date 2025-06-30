@@ -4,7 +4,7 @@ const db = require('../../models');
 const { Op } = require('sequelize');
 const ApiError = require('../../modules/errors/apiError');
 const { startOfDay, endOfDay, parseISO, addDays, addWeeks, addMonths, addYears, isAfter, getDaysInMonth } = require('date-fns');
-const { applyTransactionImpact, revertTransactionImpact } = require('../modules/financialImpact/financialImpact.helper');
+const { applyTransactionImpact, revertTransactionImpact } = require('../../modules/financialImpact/financialImpact.helper');
 
 // Helper para calcular a próxima data com base na frequência
 const calculateNextDate = (currentDate, frequency) => {
@@ -459,4 +459,4 @@ class TransactionService {
     }
 }
 
-module.exports = TransactionService; // Exporta a CLASSE
+module.exports = TransactionService; // <<-- DEVE SER ASSIM

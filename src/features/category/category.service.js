@@ -162,4 +162,4 @@ class CategoryService {
   }
 }
 
-module.exports = new CategoryService(); // Exporta uma instância da classe
+module.exports = CategoryService; // <<-- DEVE SER ASSIM
