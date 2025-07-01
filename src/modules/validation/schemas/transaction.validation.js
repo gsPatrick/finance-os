@@ -7,11 +7,19 @@ const transactionIdParam = Joi.object({
   transactionId: Joi.number().integer().positive().required(),
 });
 
-// Esquema para os query parameters na busca de transações
 const getTransactionsQuery = Joi.object({
+  // 'type' já espera 'income' ou 'expense' - o frontend agora mapeia para isso.
   type: Joi.string().valid('income', 'expense').optional(),
-  status: Joi.string().valid('pending', 'cleared', 'scheduled').optional(),
+
+  // CORRIGIDO: 'status' agora aceita uma string OU um array de strings permitidas
+  status: J.alternatives().try(
+      Joi.string().valid('pending', 'cleared', 'scheduled'), // Aceita uma única string
+      Joi.array().items(Joi.string().valid('pending', 'cleared', 'scheduled')) // Aceita um array de strings
+  ).optional(),
+
+  // 'recurring' já espera boolean - o frontend agora mapeia para isso.
   recurring: Joi.boolean().optional(),
+
   installment: Joi.boolean().optional(),
   accountId: Joi.number().integer().positive().optional(),
   categoryId: Joi.number().integer().positive().optional().allow(null),
@@ -28,7 +36,7 @@ const getTransactionsQuery = Joi.object({
 });
 
 
-// Esquema para criação de transação
+// Esquema para criação de transação (Mantido do ajuste anterior)
 const createTransaction = Joi.object({
   description: Joi.string().trim().min(1).max(255).required(),
   amount: Joi.number().precision(2).positive().required(),
@@ -40,11 +48,9 @@ const createTransaction = Joi.object({
 
   forecast: Joi.boolean().default(false).optional(),
 
-  // Campos de recorrência/parcelamento (opcionais com default)
   recurring: Joi.boolean().default(false).optional(),
   installment: Joi.boolean().default(false).optional(),
 
-  // frequency e recurringStartDate dependem APENAS de 'recurring' ser true
   frequency: Joi.string().when('recurring', {
       is: true,
       then: Joi.string().trim().min(1).required(),
@@ -56,7 +62,6 @@ const createTransaction = Joi.object({
        otherwise: Joi.optional().allow(null),
    }),
 
-   // installmentCount e installmentUnit dependem APENAS de 'installment' ser true
   installmentCount: Joi.number().integer().min(1).when('installment', {
       is: true,
       then: Joi.number().integer().min(1).required(),
@@ -68,38 +73,29 @@ const createTransaction = Joi.object({
        otherwise: Joi.optional().allow(null),
    }),
 
-   // installmentCurrent SÓ É PERMITIDO se 'installment' for true
-   // REMOVIDO o .default(1) daqui
    installmentCurrent: Joi.number().integer().min(1).optional().allow(null).when('installment', {
-       is: false, // Se installment for false...
-       then: Joi.forbidden(), // ...então installmentCurrent é proibido
-       otherwise: Joi.optional().allow(null), // Caso contrário (installment é true), é opcional e pode ser null
+       is: false,
+       then: Joi.forbidden(),
+       otherwise: Joi.optional().allow(null),
    }),
 
 
   observation: Joi.string().trim().allow('', null).optional(),
-  status: Joi.string().valid('pending', 'cleared', 'scheduled').optional(),
+  // O status inicial é determinado pelo service, não pelo frontend na criação
+  // status: Joi.string().valid('pending', 'cleared', 'scheduled').optional(),
 
 
-  // --- Regra de exclusividade no nível do objeto ---
-  // Se o objeto contiver { recurring: true, installment: true }, a validação falha.
-  // Use Joi.object para verificar a combinação. .unknown() permite outros campos.
-  // .then(Joi.forbidden()) nega o objeto se a condição for satisfeita.
-  // Mensagem personalizada definida usando .options().messages() no nível do when.
 }).when(Joi.object({ recurring: true, installment: true }).unknown(), {
     then: Joi.forbidden(),
-    // Mensagem personalizada para a condição 'when' que resulta em 'forbidden'
 }).options({
-    messages: { // Mensagens no nível do objeto
-        'any.unknown': '{{#label}} is not allowed', // Mensagem padrão para campos desconhecidos (útil manter)
-        'object.forbidden': 'Lançamentos recorrentes e parcelados não podem ser ambos verdadeiros.', // <-- Mensagem para Joi.forbidden()
-        // Nota: A chave exata para forbidden acionado por when pode variar, 'object.forbidden' é comum.
-        // Se esta não funcionar, podemos tentar outras chaves ou reestruturar a mensagem.
+    messages: {
+        'any.unknown': '{{#label}} is not allowed',
+        'object.forbidden': 'Lançamentos recorrentes e parcelados não podem ser ambos verdadeiros.',
     }
 });
 
 
-// Esquema para atualização de transação (aplicando a mesma lógica)
+// Esquema para atualização de transação (Mantido do ajuste anterior)
 const updateTransaction = Joi.object({
   description: Joi.string().trim().min(1).max(255).optional(),
   amount: Joi.number().precision(2).positive().optional(),
@@ -120,7 +116,6 @@ const updateTransaction = Joi.object({
   installmentCount: Joi.number().integer().min(1).when('installment', { is: true, then: Joi.number().integer().min(1).required(), otherwise: Joi.optional().allow(null) }).optional().allow(null),
   installmentUnit: Joi.string().when('installment', { is: true, then: Joi.string().trim().min(1).required(), otherwise: Joi.optional().allow(null) }).optional().allow(null),
 
-  // installmentCurrent SÓ É PERMITIDO se 'installment' for true (na atualização)
   installmentCurrent: Joi.number().integer().min(1).optional().allow(null).when('installment', {
       is: false,
       then: Joi.forbidden(),
@@ -128,16 +123,14 @@ const updateTransaction = Joi.object({
   }),
 
   observation: Joi.string().trim().allow('', null).optional(),
-  status: Joi.string().valid('pending', 'cleared', 'scheduled').optional(),
+  status: Joi.string().valid('pending', 'cleared', 'scheduled').optional(), // Permitir atualizar status manualmente
 
-   // Aplica a mesma regra de exclusividade no nível do objeto para atualização
 }).when(Joi.object({ recurring: true, installment: true }).unknown(), {
     then: Joi.forbidden(),
-    // Mensagem personalizada para a condição 'when' que resulta em 'forbidden'
 }).options({
     messages: {
         'any.unknown': '{{#label}} is not allowed',
-        'object.forbidden': 'Lançamentos recorrentes e parcelados não podem ser ambos verdadeiros (update).', // Mensagem ligeiramente diferente para update
+        'object.forbidden': 'Lançamentos recorrentes e parcelados não podem ser ambos verdadeiros (update).',
     }
 }).min(1);
 
