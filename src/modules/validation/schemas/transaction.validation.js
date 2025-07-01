@@ -1,8 +1,8 @@
-// src/modules/validation/schemas/transaction.validation.js (CORRIGIDO: Regras when aplicadas nos campos)
+// src/modules/validation/schemas/transaction.validation.js (CORRIGIDO: Remove dependência circular no esquema)
 
 const Joi = require('joi'); // Variável Joi importada
 
-// Esquema base para o ID da transação nos parâmetros
+// Esquema base para o ID da transação nos parâmetros (mantido)
 const transactionIdParam = Joi.object({
   transactionId: Joi.number().integer().positive().required(),
 });
@@ -46,57 +46,47 @@ const createTransaction = Joi.object({
 
   // Campos de recorrência/parcelamento (condicionais)
   // São opcionais no payload de entrada, mas Joi lhes dará o default(false) se não enviados.
-  // As regras 'when' agora são aplicadas nos campos recurring/installment
-  recurring: Joi.boolean().default(false).optional()
-      .when('installment', { // <-- Aplica when em 'recurring', referenciando 'installment'
-          is: true, // Se 'installment' existe e é true
-          then: Joi.valid(false).required().messages({ // Então 'recurring' DEVE ser explicitamente false
-              'any.required': 'O campo "recurring" deve ser explicitamente false quando "installment" é true.',
-              'any.only': 'O campo "recurring" deve ser false quando "installment" é true.',
-          }),
-          otherwise: Joi.boolean().default(false).optional(), // Se 'installment' não é true, recurring pode ser o original (optional default false)
-      }),
+  // REMOVIDA A REGRA when AQUI - A exclusividade será verificada no nível do objeto
+  recurring: Joi.boolean().default(false).optional(),
 
-  installment: Joi.boolean().default(false).optional()
-       .when('recurring', { // <-- Aplica when em 'installment', referenciando 'recurring'
-           is: true, // Se 'recurring' existe e é true
-           then: Joi.valid(false).required().messages({ // Então 'installment' DEVE ser explicitamente false
-               'any.required': 'O campo "installment" deve ser explicitamente false quando "recurring" é true.',
-               'any.only': 'O campo "installment" deve ser false quando "recurring" é true.',
-           }),
-           otherwise: Joi.boolean().default(false).optional(), // Se 'recurring' não é true, installment pode ser o original
-       }),
+  // REMOVIDA A REGRA when AQUI - A exclusividade será verificada no nível do objeto
+  installment: Joi.boolean().default(false).optional(),
 
-  // frequency e recurringStartDate dependem apenas de 'recurring' ser true (sem a nova regra when aqui)
+  // frequency e recurringStartDate dependem APENAS de 'recurring' ser true
   frequency: Joi.string().when('recurring', {
-      is: true,
-      then: Joi.string().trim().min(1).required(),
-      otherwise: Joi.optional().allow(null),
+      is: true, // Se 'recurring' é true
+      then: Joi.string().trim().min(1).required(), // frequency é necessário
+      otherwise: Joi.optional().allow(null), // Senão, opcional/null
   }),
    recurringStartDate: Joi.date().iso().when('recurring', {
-       is: true,
-       then: Joi.required(),
-       otherwise: Joi.optional().allow(null),
+       is: true, // Se 'recurring' é true
+       then: Joi.required(), // recurringStartDate é necessário
+       otherwise: Joi.optional().allow(null), // Senão, opcional/null
    }),
 
-   // installmentCount e installmentUnit dependem apenas de 'installment' ser true (sem a nova regra when aqui)
+   // installmentCount e installmentUnit dependem APENAS de 'installment' ser true
   installmentCount: Joi.number().integer().min(1).when('installment', {
-      is: true,
-      then: Joi.number().integer().min(1).required(),
-      otherwise: Joi.optional().allow(null),
+      is: true, // Se 'installment' é true
+      then: Joi.number().integer().min(1).required(), // installmentCount é necessário
+      otherwise: Joi.optional().allow(null), // Senão, opcional/null
   }),
-   installmentCurrent: Joi.number().integer().min(1).optional().allow(null).default(1),
+   installmentCurrent: Joi.number().integer().min(1).optional().allow(null).default(1), // Parcela atual (sempre opcional/default)
    installmentUnit: Joi.string().when('installment', {
-       is: true,
-       then: Joi.string().trim().min(1).required(),
-       otherwise: Joi.optional().allow(null),
+       is: true, // Se 'installment' é true
+       then: Joi.string().trim().min(1).required(), // installmentUnit é necessário
+       otherwise: Joi.optional().allow(null), // Senão, opcional/null
    }),
 
   observation: Joi.string().trim().allow('', null).optional(),
   status: Joi.string().valid('pending', 'cleared', 'scheduled').optional(),
 
-  // Removido as regras when aplicadas no objeto raiz.
-  // A exclusividade agora é tratada pelas regras when aplicadas nos campos individuais.
+
+  // --- Regra de exclusividade no nível do objeto ---
+  // Se o objeto contiver { recurring: true, installment: true }, a validação falha.
+  // Use Joi.object para verificar a combinação. .unknown() permite outros campos.
+  // .then(Joi.forbidden()) nega o objeto se a condição for satisfeita.
+}).when(Joi.object({ recurring: true, installment: true }).unknown(), {
+    then: Joi.forbidden().message('Lançamentos recorrentes e parcelados não podem ser ambos verdadeiros.'), // Mensagem de erro customizada
 });
 
 
@@ -112,27 +102,8 @@ const updateTransaction = Joi.object({
 
   forecast: Joi.boolean().optional(),
 
-  // Aplica as mesmas regras when nos campos recurring/installment para atualização
-  recurring: Joi.boolean().optional()
-       .when('installment', { // <-- Aplica when em 'recurring', referenciando 'installment'
-           is: true,
-           then: Joi.valid(false).required().messages({
-               'any.required': 'O campo "recurring" deve ser explicitamente false quando "installment" é true.',
-               'any.only': 'O campo "recurring" deve ser false quando "installment" é true.',
-           }),
-           otherwise: Joi.boolean().optional(), // Mantém opcional na atualização
-       }),
-
-  installment: Joi.boolean().optional()
-      .when('recurring', { // <-- Aplica when em 'installment', referenciando 'recurring'
-          is: true,
-          then: Joi.valid(false).required().messages({
-              'any.required': 'O campo "installment" deve ser explicitamente false quando "recurring" é true.',
-              'any.only': 'O campo "installment" deve ser false quando "recurring" é true.',
-          }),
-          otherwise: Joi.boolean().optional(), // Mantém opcional na atualização
-      }),
-
+  recurring: Joi.boolean().optional(),
+  installment: Joi.boolean().optional(), // Removida regra when aqui
 
   frequency: Joi.string().when('recurring', { is: true, then: Joi.string().trim().min(1).required(), otherwise: Joi.optional().allow(null) }).optional().allow(null),
   recurringStartDate: Joi.date().iso().when('recurring', { is: true, then: Joi.required(), otherwise: Joi.optional().allow(null) }).optional().allow(null),
@@ -144,7 +115,10 @@ const updateTransaction = Joi.object({
   observation: Joi.string().trim().allow('', null).optional(),
   status: Joi.string().valid('pending', 'cleared', 'scheduled').optional(),
 
-}).min(1); // Garante que pelo menos um campo esteja presente para atualização
+   // Aplica a mesma regra de exclusividade no nível do objeto para atualização
+}).when(Joi.object({ recurring: true, installment: true }).unknown(), {
+    then: Joi.forbidden().message('Lançamentos recorrentes e parcelados não podem ser ambos verdadeiros.'),
+}).min(1);
 
 
 // Exporta todos os esquemas relevantes
