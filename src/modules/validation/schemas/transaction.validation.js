@@ -1,6 +1,6 @@
-// src/modules/validation/schemas/transaction.validation.js (FINAL COMPLETO)
+// src/modules/validation/schemas/transaction.validation.js (FINAL COMPLETO E CORRIGIDO)
 
-const Joi = require('joi'); // Variável Joi importada
+const Joi = require('joi'); // Variável Joi importada e usada
 
 // Esquema base para o ID da transação nos parâmetros
 const transactionIdParam = Joi.object({
@@ -129,15 +129,15 @@ const updateTransaction = Joi.object({
   // Aplica as mesmas regras de exclusividade 'when' para atualização
 }).when('recurring', {
     is: true,
-    then: Joi.object({
-        installment: Joi.valid(false).required()
+    then: Joi.object({ // Use Joi.object
+        installment: Joi.valid(false).required() // Use Joi.valid
     }),
 }).when('installment', {
     is: true,
-    then: Joi.object({
-        recurring: Joi.valid(false).required()
+    then: Joi.object({ // Use Joi.object
+        recurring: Joi.valid(false).required() // Use Joi.valid
     }),
-}).min(1);
+}).min(1); // Garante que pelo menos um campo esteja presente para atualização
 
 
 // Exporta todos os esquemas relevantes
