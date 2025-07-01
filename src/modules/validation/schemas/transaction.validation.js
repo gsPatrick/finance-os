@@ -1,56 +1,64 @@
-// src/modules/validation/schemas/transaction.validation.js (AJUSTADO: Lógica de installmentCurrent no Joi)
+// src/modules/validation/schemas/transaction.validation.js
 
-const Joi = require('joi'); // Variável Joi importada
+const Joi = require('joi');
 
 // Esquema base para o ID da transação nos parâmetros
 const transactionIdParam = Joi.object({
   transactionId: Joi.number().integer().positive().required(),
 });
 
+// Esquema para os query parameters na busca de transações
 const getTransactionsQuery = Joi.object({
-  // 'type' já espera 'income' ou 'expense' - o frontend agora mapeia para isso.
+  // 'type' espera 'income' ou 'expense'. O frontend deve mapear para isso.
   type: Joi.string().valid('income', 'expense').optional(),
 
   // CORRIGIDO: 'status' agora aceita uma string OU um array de strings permitidas
-  status: J.alternatives().try(
+  status: Joi.alternatives().try(
       Joi.string().valid('pending', 'cleared', 'scheduled'), // Aceita uma única string
       Joi.array().items(Joi.string().valid('pending', 'cleared', 'scheduled')) // Aceita um array de strings
   ).optional(),
 
-  // 'recurring' já espera boolean - o frontend agora mapeia para isso.
+  // 'recurring' espera boolean. O frontend deve mapear 'yes'/'no' para true/false.
   recurring: Joi.boolean().optional(),
 
+  // 'installment' espera boolean. O frontend deve mapear 'yes'/'no' para true/false.
   installment: Joi.boolean().optional(),
+
   accountId: Joi.number().integer().positive().optional(),
   categoryId: Joi.number().integer().positive().optional().allow(null),
   invoiceId: Joi.number().integer().positive().optional().allow(null),
 
+  // Filtros de data esperam strings no formato ISO 8601 (YYYY-MM-DD)
   startDate: Joi.date().iso().optional(),
   endDate: Joi.date().iso().optional(),
 
   search: Joi.string().trim().optional(),
 
+  // Parâmetros de paginação e ordenação
   limit: Joi.number().integer().positive().default(20).optional(),
   page: Joi.number().integer().positive().default(1).optional(),
-  sortBy: Joi.string().optional(),
+  sortBy: Joi.string().optional(), // Formato esperado: 'campo:direcao' (ex: 'date:desc', 'amount:asc')
 });
 
 
-// Esquema para criação de transação (Mantido do ajuste anterior)
+// Esquema para criação de transação
 const createTransaction = Joi.object({
   description: Joi.string().trim().min(1).max(255).required(),
   amount: Joi.number().precision(2).positive().required(),
-  type: Joi.string().valid('income', 'expense').required(),
-  date: Joi.date().iso().required(),
+  type: Joi.string().valid('income', 'expense').required(), // Espera 'income' ou 'expense'
+  date: Joi.date().iso().required(), // Espera string ISO 8601 (YYYY-MM-DD)
   accountId: Joi.number().integer().positive().required(),
   categoryId: Joi.number().integer().positive().optional().allow(null),
   invoiceId: Joi.number().integer().positive().optional().allow(null),
 
+  // Campo para indicar se é um lançamento futuro. Service decide o status inicial.
   forecast: Joi.boolean().default(false).optional(),
 
+  // Flags para indicar se é uma série recorrente ou parcelada
   recurring: Joi.boolean().default(false).optional(),
   installment: Joi.boolean().default(false).optional(),
 
+  // frequency e recurringStartDate dependem APENAS de 'recurring' ser true
   frequency: Joi.string().when('recurring', {
       is: true,
       then: Joi.string().trim().min(1).required(),
@@ -62,6 +70,7 @@ const createTransaction = Joi.object({
        otherwise: Joi.optional().allow(null),
    }),
 
+   // installmentCount e installmentUnit dependem APENAS de 'installment' ser true
   installmentCount: Joi.number().integer().min(1).when('installment', {
       is: true,
       then: Joi.number().integer().min(1).required(),
@@ -73,34 +82,43 @@ const createTransaction = Joi.object({
        otherwise: Joi.optional().allow(null),
    }),
 
+   // CORRIGIDO: installmentCurrent SÓ É PERMITIDO se 'installment' for true na CRIAÇÃO
+   // Removido o .default(1) daqui. O Service define installmentCurrent para a primeira parcela.
    installmentCurrent: Joi.number().integer().min(1).optional().allow(null).when('installment', {
-       is: false,
-       then: Joi.forbidden(),
-       otherwise: Joi.optional().allow(null),
+       is: false, // Se installment for false...
+       then: Joi.forbidden(), // ...então installmentCurrent é proibido
+       otherwise: Joi.optional().allow(null), // Caso contrário (installment é true), é opcional e pode ser null
    }),
 
 
   observation: Joi.string().trim().allow('', null).optional(),
-  // O status inicial é determinado pelo service, não pelo frontend na criação
+
+  // Status inicial é determinado pelo service com base na data, forecast e flags de série.
+  // Não deve ser enviado pelo frontend na criação.
   // status: Joi.string().valid('pending', 'cleared', 'scheduled').optional(),
 
 
+  // --- Regra de exclusividade no nível do objeto ---
+  // Se o objeto contiver { recurring: true, installment: true }, a validação falha.
+  // Usa Joi.object para verificar a combinação. .unknown() permite outros campos no body.
+  // .then(Joi.forbidden()) nega o objeto se a condição for satisfeita.
+  // Mensagem personalizada definida usando .options().messages() no nível do when.
 }).when(Joi.object({ recurring: true, installment: true }).unknown(), {
     then: Joi.forbidden(),
 }).options({
-    messages: {
-        'any.unknown': '{{#label}} is not allowed',
-        'object.forbidden': 'Lançamentos recorrentes e parcelados não podem ser ambos verdadeiros.',
+    messages: { // Mensagens no nível do objeto
+        'any.unknown': '{{#label}} is not allowed', // Mensagem padrão para campos desconhecidos (útil manter)
+        'object.forbidden': 'Lançamentos recorrentes e parcelados não podem ser ambos verdadeiros.', // Mensagem para Joi.forbidden()
     }
 });
 
 
-// Esquema para atualização de transação (Mantido do ajuste anterior)
+// Esquema para atualização de transação
 const updateTransaction = Joi.object({
   description: Joi.string().trim().min(1).max(255).optional(),
   amount: Joi.number().precision(2).positive().optional(),
-  type: Joi.string().valid('income', 'expense').optional(),
-  date: Joi.date().iso().optional(),
+  type: Joi.string().valid('income', 'expense').optional(), // Espera 'income' ou 'expense'
+  date: Joi.date().iso().optional(), // Espera string ISO 8601 (YYYY-MM-DD)
   accountId: Joi.number().integer().positive().optional().allow(null),
   categoryId: Joi.number().integer().positive().optional().allow(null),
   invoiceId: Joi.number().integer().positive().optional().allow(null),
@@ -116,6 +134,7 @@ const updateTransaction = Joi.object({
   installmentCount: Joi.number().integer().min(1).when('installment', { is: true, then: Joi.number().integer().min(1).required(), otherwise: Joi.optional().allow(null) }).optional().allow(null),
   installmentUnit: Joi.string().when('installment', { is: true, then: Joi.string().trim().min(1).required(), otherwise: Joi.optional().allow(null) }).optional().allow(null),
 
+  // CORRIGIDO: installmentCurrent SÓ É PERMITIDO se 'installment' for true na ATUALIZAÇÃO
   installmentCurrent: Joi.number().integer().min(1).optional().allow(null).when('installment', {
       is: false,
       then: Joi.forbidden(),
@@ -123,16 +142,18 @@ const updateTransaction = Joi.object({
   }),
 
   observation: Joi.string().trim().allow('', null).optional(),
-  status: Joi.string().valid('pending', 'cleared', 'scheduled').optional(), // Permitir atualizar status manualmente
+  // Permitir atualizar status manualmente (ex: de pending para cleared)
+  status: Joi.string().valid('pending', 'cleared', 'scheduled').optional(),
 
+   // Aplica a mesma regra de exclusividade no nível do objeto para atualização
 }).when(Joi.object({ recurring: true, installment: true }).unknown(), {
     then: Joi.forbidden(),
 }).options({
     messages: {
         'any.unknown': '{{#label}} is not allowed',
-        'object.forbidden': 'Lançamentos recorrentes e parcelados não podem ser ambos verdadeiros (update).',
+        'object.forbidden': 'Lançamentos recorrentes e parcelados não podem ser ambos verdadeiros (update).', // Mensagem ligeiramente diferente para update
     }
-}).min(1);
+}).min(1); // Garante que pelo menos um campo atualizável esteja presente
 
 
 // Exporta todos os esquemas relevantes
