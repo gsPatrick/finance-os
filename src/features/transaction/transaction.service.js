@@ -1,14 +1,14 @@
-// src/transaction/transaction.service.js
+// src/transaction/transaction.service.js (AJUSTADO: Removendo parseISO redundante)
 
 const db = require('../../models');
 const { Op } = require('sequelize');
 const ApiError = require('../../modules/errors/apiError');
-const { startOfDay, endOfDay, parseISO, addDays, addWeeks, addMonths, addYears, isAfter, getDaysInMonth } = require('date-fns');
-const { applyTransactionImpact, revertTransactionImpact } = require('../../modules/financialImpact/financialImpact.helper');
+// Removido parseISO daqui, pois as datas virão como objetos Date do Joi
+const { startOfDay, endOfDay, addDays, addWeeks, addMonths, addYears, isAfter, getDaysInMonth } = require('date-fns');
 
 // Helper para calcular a próxima data com base na frequência
 const calculateNextDate = (currentDate, frequency) => {
-    let nextDate = new Date(currentDate); // Copia a data atual
+    let nextDate = new Date(currentDate); // Copia a data atual (já é um objeto Date)
     switch (frequency) {
         case 'Diária': return addDays(nextDate, 1);
         case 'Semanal': return addWeeks(nextDate, 1);
@@ -38,11 +38,12 @@ class TransactionService {
   /**
    * Cria uma nova transação ou uma série de transações (recorrentes/parceladas).
    * @param {number} userId - O ID do usuário autenticado.
-   * @param {object} transactionData - Dados da transação.
+   * @param {object} transactionData - Dados da transação. Contém 'date', 'recurringStartDate' como objetos Date (se validados pelo Joi).
    * @returns {Promise<object[]>} Um array com todas as transações criadas (incluindo futuras).
    * @throws {ApiError} Se conta/categoria/fatura não forem encontradas ou não pertencerem ao usuário.
    */
   async createTransaction(userId, transactionData) {
+    // 'date' e 'recurringStartDate' já devem ser objetos Date aqui se vieram do Joi.
     const { accountId, categoryId, invoiceId, amount, type, date, recurring, installment, installmentCount, installmentUnit, frequency, recurringStartDate, ...otherData } = transactionData;
 
     // 1. Verificar e buscar Conta
@@ -55,10 +56,11 @@ class TransactionService {
         if (!category) throw new ApiError(404, 'Categoria associada não encontrada.');
     }
 
-    // 3. Validações de flags recorrente/parcelado
+    // 3. Validações de flags recorrente/parcelado (esta lógica está correta)
     if (recurring && installment) throw new ApiError(400, 'Uma transação não pode ser parcelada E recorrente.');
     if (!recurring && (frequency || recurringStartDate)) throw new ApiError(400, 'Campos de recorrência (frequency, recurringStartDate) só são permitidos se `recurring` for true.');
-    if (!installment && (installmentCount || installmentUnit || transactionData.installmentCurrent)) throw new ApiError(400, 'Campos de parcelamento (installmentCount, installmentUnit, installmentCurrent) só são permitidos se `installment` for true.');
+    // installmentCurrent não é validado aqui, pois ele só é setado nas ocorrências filhas ou na primeira parcela (se count > 1)
+    if (!installment && (installmentCount || installmentUnit)) throw new ApiError(400, 'Campos de parcelamento (installmentCount, installmentUnit) só são permitidos se `installment` for true.');
 
 
     // Usar uma transação Sequelize para garantir atomicidade de toda a série
@@ -67,13 +69,16 @@ class TransactionService {
         // --- 4. Obter/Validar Fatura para Despesas de Cartão ---
         let invoice = null;
         if (account.type === 'credit_card' && type === 'expense') {
-            invoice = await this._findOrCreateInvoiceForTransaction(userId, accountId, parseISO(date), t, invoiceId);
+            // 'date' já é um objeto Date aqui
+            invoice = await this._findOrCreateInvoiceForTransaction(userId, accountId, date, t, invoiceId);
             if (!invoice) throw new ApiError(400, `Nenhuma fatura válida encontrada ou criada para o cartão ${account.name} na data da transação.`);
         } else if (invoiceId && account.type !== 'credit_card') {
             throw new ApiError(400, 'Uma transação em conta tipo "cash" não pode ser associada a uma fatura.');
         }
 
         // --- 5. Criar a transação MESTRA (ou a primeira transação para séries) ---
+        // 'date' já é um objeto Date aqui
+        // 'recurringStartDate' já é um objeto Date aqui se presente
         const masterTransaction = await this.TransactionModel.create({
             userId: userId,
             accountId: accountId,
@@ -82,13 +87,15 @@ class TransactionService {
             description: otherData.description,
             amount: amount,
             type: type,
-            date: parseISO(date),
-            status: (startOfDay(parseISO(date)) <= startOfDay(new Date())) ? 'cleared' : (recurring || installment ? 'scheduled' : 'pending'), // Status inicial
+            date: date, // Use o objeto Date diretamente
+            // Status inicial baseado na data e no flag forecast
+            status: (startOfDay(date) <= startOfDay(new Date()) && !transactionData.forecast) ? 'cleared' : (recurring || installment ? 'scheduled' : 'pending'),
             recurring: recurring,
             frequency: recurring ? frequency : null,
-            recurringStartDate: recurring ? (recurringStartDate ? parseISO(recurringStartDate) : parseISO(date)) : null,
+            recurringStartDate: recurring ? (recurringStartDate || date) : null, // Use recurringStartDate (Date) ou date (Date)
             installment: installment,
             installmentCount: installment ? installmentCount : null,
+            // installmentCurrent só é setado para 1 se for a primeira parcela E installmentCount > 1
             installmentCurrent: installment ? (installmentCount > 1 ? 1 : null) : null,
             installmentUnit: installment ? installmentUnit : null,
             observation: otherData.observation,
@@ -104,7 +111,7 @@ class TransactionService {
 
         // --- 7. Gerar ocorrências futuras IMEDIATAMENTE (se recorrente ou parcelado) ---
         if (recurring || installment) {
-            let currentDate = parseISO(date);
+            let currentDate = date; // Começa com a data da transação mestra (já é Date)
             const limit = installment ? installmentCount - 1 : DEFAULT_RECURRING_FUTURE_OCCURRENCES_LIMIT;
             let currentOccurrenceNumber = installment ? 1 : 0; // Para numeração de parcelas
 
@@ -114,7 +121,8 @@ class TransactionService {
 
                 // Limite de ocorrências para evitar loops infinitos ou sobrecarga de dados
                 if (installment && currentOccurrenceNumber >= MAX_INSTALLMENT_OCCURRENCES_LIMIT) break;
-                if (recurring && isAfter(currentDate, addYears(parseISO(date), 2))) break; // Limite de 2 anos para recorrências
+                // Comparar objetos Date diretamente
+                if (recurring && isAfter(currentDate, addYears(date, 2))) break; // Limite de 2 anos a partir da data MESTRA
 
                 // Ajustar descrição e número de parcela para parcelamento
                 let childDescription = otherData.description;
@@ -124,12 +132,13 @@ class TransactionService {
                     childDescription = `${otherData.description} (${currentOccurrenceNumber}/${installmentCount})`;
                 }
 
+                // Status da ocorrência futura: 'cleared' se a data já passou, 'scheduled' caso contrário
                 const futureStatus = (startOfDay(currentDate) <= startOfDay(new Date())) ? 'cleared' : 'scheduled';
 
                 // Obter/criar fatura para a transação filha de cartão (se aplicável)
                 let childInvoiceId = null;
                 if (account.type === 'credit_card' && type === 'expense') {
-                    const childInvoice = await this._findOrCreateInvoiceForTransaction(userId, accountId, currentDate, t);
+                    const childInvoice = await this._findOrCreateInvoiceForTransaction(userId, accountId, currentDate, t); // currentDate já é Date
                     childInvoiceId = childInvoice?.id || null;
                 }
 
@@ -140,9 +149,9 @@ class TransactionService {
                     invoiceId: childInvoiceId,
                     parentId: masterTransaction.id, // Linka à transação mestra
                     description: childDescription, // Descrição (com numeração para parcelas)
-                    amount: installment ? amount / installmentCount : amount, // Valor da parcela para installment, total para recurring
+                    amount: installment ? parseFloat(amount) / parseInt(installmentCount, 10) : amount, // Valor da parcela para installment, total para recurring
                     type: type,
-                    date: currentDate,
+                    date: currentDate, // Use o objeto Date diretamente
                     status: futureStatus,
                     recurring: false, // Ocorrências filhas não são regras recorrentes
                     frequency: null, recurringStartDate: null,
@@ -153,25 +162,38 @@ class TransactionService {
                     observation: otherData.observation,
                 }, { transaction: t });
 
-                resultTransactions.push(futureTransaction.toJSON());
-
                 // Se a transação filha for 'cleared' (porque a data já passou), aplicar impacto
                 if (futureTransaction.status === 'cleared') {
-                    await applyTransactionImpact(futureTransaction, { transaction: t, account: account, invoice: (await futureTransaction.getInvoice({ transaction: t })) });
+                     // Precisa buscar a conta e fatura associadas para o helper applyTransactionImpact
+                     const childAccount = await futureTransaction.getAccount({transaction: t});
+                     const childInvoice = await futureTransaction.getInvoice({transaction: t});
+                    await applyTransactionImpact(futureTransaction, { transaction: t, account: childAccount, invoice: childInvoice });
                 }
             } // Fim do for
         }
     }); // Fim da transação Sequelize
 
     // Retornar todas as transações criadas (a mestra e as futuras)
-    return resultTransactions;
+    // Pode ser necessário buscar novamente com includes se quiser retornar relações
+    // ou ajustar a lógica de criação para incluir as relações no objeto retornado.
+    // Por simplicidade, vamos buscar a mestra com relações para retornar.
+    const masterTransactionWithRelations = await this.TransactionModel.findByPk(resultTransactions[0].id, {
+         include: [
+             { model: db.Account, as: 'account', attributes: ['id', 'name', 'type', 'brand', 'finalDigits'] },
+             { model: db.Category, as: 'category', attributes: ['id', 'name', 'color', 'icon'], required: false },
+             { model: db.Transaction, as: 'children', attributes: ['id', 'description', 'amount', 'date', 'status', 'installmentCurrent'], required: false, order: [['date', 'ASC']] },
+         ],
+    });
+
+
+    return masterTransactionWithRelations.toJSON(); // Retorna a mestra com suas filhas (opcional, ajuste conforme a necessidade do frontend)
   }
 
     /**
      * Helper interno para encontrar ou criar fatura para transações de cartão futuras.
      * @param {number} userId
      * @param {number} accountId
-     * @param {Date} transactionDate
+     * @param {Date} transactionDate - Já é um objeto Date
      * @param {object} t - Sequelize transaction object
      * @param {number} [explicitInvoiceId] - ID de fatura fornecido explicitamente, para verificar se existe.
      * @returns {Promise<object>} Objeto da fatura (JSON) ou null.
@@ -186,8 +208,9 @@ class TransactionService {
             throw new ApiError(404, 'Fatura explícita associada não encontrada para este cartão/usuário.');
         }
 
+        // transactionDate já é um objeto Date aqui
         const year = transactionDate.getFullYear();
-        const month = transactionDate.getMonth() + 1;
+        const month = transactionDate.getMonth() + 1; // getMonth() é 0-indexado
 
         let invoice = await db.Invoice.findOne({
             where: { accountId, userId, year, month },
@@ -202,14 +225,19 @@ class TransactionService {
                  return null; // Não pode criar fatura sem dados do cartão
             }
 
-            const currentMonthMaxDay = getDaysInMonth(new Date(year, month - 1));
-            const newInvoiceDueDate = new Date(year, month - 1, Math.min(card.dueDay, currentMonthMaxDay));
-            const newInvoiceClosingDate = new Date(year, month - 1, Math.min(card.closingDay, currentMonthMaxDay));
+            // Use o ano e mês da transação (transactionDate) para calcular dueDate e closingDate da NOVA fatura
+            const invoiceYear = transactionDate.getFullYear();
+            const invoiceMonth = transactionDate.getMonth(); // 0-indexed para new Date
+
+            const currentMonthMaxDay = getDaysInMonth(new Date(invoiceYear, invoiceMonth, 1)); // Dias no mês da fatura
+            const newInvoiceDueDate = new Date(invoiceYear, invoiceMonth, Math.min(card.dueDay, currentMonthMaxDay));
+            const newInvoiceClosingDate = new Date(invoiceYear, invoiceMonth, Math.min(card.closingDay, currentMonthMaxDay));
+
 
             invoice = await db.Invoice.create({
-                userId, accountId, month, year,
-                dueDate: newInvoiceDueDate,
-                closingDate: newInvoiceClosingDate,
+                userId, accountId, month, year, // Use month/year da transactionDate
+                dueDate: newInvoiceDueDate, // Use os objetos Date calculados
+                closingDate: newInvoiceClosingDate, // Use os objetos Date calculados
                 status: 'open', total: 0.00, paidAmount: 0.00, paymentStatus: 'unpaid',
             }, { transaction: t });
             console.log(`Fatura ${month}/${year} criada automaticamente para cartão ${accountId}.`);
@@ -217,11 +245,10 @@ class TransactionService {
         return invoice.toJSON();
      }
 
-
   /**
    * Busca transações de um usuário com opções de filtro, paginação e ordenação.
    * @param {number} userId - O ID do usuário autenticado.
-   * @param {object} options - Opções de busca.
+   * @param {object} options - Opções de busca. Contém 'date', 'startDate', 'endDate' como objetos Date se validados pelo Joi.
    * @returns {Promise<{rows: object[], count: number}>} Lista de transações e total.
    */
   async getTransactions(userId, options = {}) {
@@ -236,12 +263,22 @@ class TransactionService {
       include: [
         { model: db.Account, as: 'account', attributes: ['id', 'name', 'type', 'brand', 'finalDigits'] },
         { model: db.Category, as: 'category', attributes: ['id', 'name', 'color', 'icon'], required: false },
-        ...(includeParent ? [{ model: db.Transaction, as: 'parent', attributes: ['id', 'description', 'amount', 'date', 'installmentCount', 'installmentCurrent'] }] : []),
-        ...(includeChildren ? [{ model: db.Transaction, as: 'children', attributes: ['id', 'description', 'amount', 'date', 'status', 'installmentCurrent'], required: false, order: [['date', 'ASC']] }] : []),
+        { model: db.Transaction, as: 'parent', attributes: ['id', 'description', 'amount', 'date', 'installmentCount', 'installmentCurrent'], required: false },
+        { model: db.Transaction, as: 'children', attributes: ['id', 'description', 'amount', 'date', 'status', 'installmentCurrent'], required: false, order: [['date', 'ASC']] },
       ],
        order: otherOptions.order || [['date', 'DESC'], ['createdAt', 'DESC']],
        attributes: { exclude: ['password'] }
     };
+
+    // Lógica de filtro por data nos query params (startDate, endDate)
+    // Assumindo que startDate e endDate em findOptions.where já são objetos Date do Joi
+    if (findOptions.where.date && findOptions.where.date[Op.between]) {
+        // As datas no Op.between já são objetos Date, não precisa de parseISO
+        // Ex: { date: { [Op.between]: [Date object, Date object] } }
+    } else if (findOptions.where.date && findOptions.where.date[Op.gte]) {
+         // A data no Op.gte já é um objeto Date
+    } // ... e assim por diante para outros operadores de data
+
 
     if (findOptions.where.search) {
         const searchTerm = findOptions.where.search;
@@ -288,11 +325,12 @@ class TransactionService {
    * Atualiza uma transação existente para um usuário.
    * @param {number} userId - O ID do usuário autenticado.
    * @param {number} transactionId - O ID da transação a ser atualizada.
-   * @param {object} updateData - Dados para atualização.
+   * @param {object} updateData - Dados para atualização. Contém campos de data como objetos Date se validados pelo Joi.
    * @returns {Promise<object>} A transação atualizada.
    * @throws {ApiError} Se não for encontrada/pertencer ao usuário, ou se tentar mudar campos de série em transações filhas.
    */
   async updateTransaction(userId, transactionId, updateData) {
+    // updateData pode conter campos de data como objetos Date
     const transaction = await this.TransactionModel.findOne({ where: { id: transactionId, userId: userId }, include: [{ model: db.Account, as: 'account' }, { model: db.Invoice, as: 'invoice' }] }); // Incluir fatura para ter acesso aos dados
     if (!transaction) throw new ApiError(404, 'Transação não encontrada.');
 
@@ -315,9 +353,9 @@ class TransactionService {
             await revertTransactionImpact(transaction, { transaction: t, account: transaction.account, invoice: transaction.invoice });
         }
 
-        // 3. Validar e filtrar campos de série para transações filhas
+        // 3. Validar e filtrar campos de série para transações filhas (esta lógica está correta)
         if (transaction.parentId !== null) {
-            const serieFields = ['recurring', 'installment', 'frequency', 'recurringStartDate', 'installmentCount', 'installmentUnit'];
+            const serieFields = ['recurring', 'installment', 'frequency', 'recurringStartDate', 'installmentCount', 'installmentUnit', 'installmentCurrent']; // Incluir installmentCurrent aqui
             const forbiddenUpdates = serieFields.filter(field => updateData[field] !== undefined);
             if (forbiddenUpdates.length > 0) throw new ApiError(400, `Não é permitido alterar campos de série (${forbiddenUpdates.join(', ')}) em transações filhas.`);
             forbiddenUpdates.forEach(field => delete updateData[field]); // Remove os campos de série explicitamente para evitar que sejam atualizados
@@ -326,9 +364,10 @@ class TransactionService {
         if (!transaction.recurring && (updateData.frequency !== undefined || updateData.recurringStartDate !== undefined)) {
             delete updateData.frequency; delete updateData.recurringStartDate;
         }
-        if (!transaction.installment && (updateData.installmentCount !== undefined || updateData.installmentUnit !== undefined)) {
-            delete updateData.installmentCount; delete updateData.installmentUnit;
+        if (!transaction.installment && (updateData.installmentCount !== undefined || updateData.installmentUnit !== undefined || updateData.installmentCurrent !== undefined)) { // Incluir installmentCurrent
+            delete updateData.installmentCount; delete updateData.installmentUnit; delete updateData.installmentCurrent;
         }
+
 
         // 4. Se accountId ou invoiceId mudaram, verificar validade do novo ID
         let targetAccount = transaction.account;
@@ -409,13 +448,16 @@ class TransactionService {
                  throw new ApiError(400, 'Não é permitido deletar uma transação de série mestra sem deletar a série completa. Use `deleteSeries=true`.');
             }
             if (transaction.children && transaction.children.length > 0) {
-                const childIds = transaction.children.map(child => child.id);
                 // Reverte impacto das filhas 'cleared' antes de deletar
                 for (const child of transaction.children) {
                     if (child.status === 'cleared') {
-                        await revertTransactionImpact(child, { transaction: t, account: (await child.getAccount({transaction: t})), invoice: (await child.getInvoice({transaction: t})) });
+                         // Precisa buscar a conta e fatura associadas para o helper revertTransactionImpact
+                         const childAccount = await child.getAccount({transaction: t});
+                         const childInvoice = await child.getInvoice({transaction: t});
+                        await revertTransactionImpact(child, { transaction: t, account: childAccount, invoice: childInvoice });
                     }
                 }
+                 const childIds = transaction.children.map(child => child.id);
                 await this.TransactionModel.destroy({ where: { id: { [Op.in]: childIds } }, transaction: t });
                 console.log(`Série da transação ${transaction.id} deletada: ${childIds.length} transações filhas removidas.`);
             }
@@ -438,7 +480,7 @@ class TransactionService {
             where: {
                 userId: { [Op.not]: null },
                 status: { [Op.in]: ['pending', 'scheduled'] },
-                date: { [Op.lte]: today },
+                date: { [Op.lte]: today }, // Compara objetos Date diretamente
             },
             include: [{ model: db.Account, as: 'account' }, { model: db.Invoice, as: 'invoice' }],
         });
@@ -447,6 +489,7 @@ class TransactionService {
             for (const transaction of dueTransactions) {
                 try {
                     await transaction.update({ status: 'cleared' }, { transaction: t });
+                    // transaction.account e transaction.invoice já estão incluídos na busca acima
                     await applyTransactionImpact(transaction, { transaction: t, account: transaction.account, invoice: transaction.invoice });
                     clearedCount++;
                 } catch (error) {
