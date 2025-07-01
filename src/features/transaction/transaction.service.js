@@ -1,10 +1,12 @@
-// src/transaction/transaction.service.js (AJUSTADO: Removendo parseISO redundante)
+// src/transaction/transaction.service.js (AJUSTADO: Importando financialImpact.helper)
 
 const db = require('../../models');
 const { Op } = require('sequelize');
 const ApiError = require('../../modules/errors/apiError');
-// Removido parseISO daqui, pois as datas virão como objetos Date do Joi
 const { startOfDay, endOfDay, addDays, addWeeks, addMonths, addYears, isAfter, getDaysInMonth } = require('date-fns');
+// IMPORTAÇÃO CORRETA DO HELPER DE IMPACTO FINANCEIRO
+const { applyTransactionImpact, revertTransactionImpact } = require('../../modules/financialImpact/financialImpact.helper');
+
 
 // Helper para calcular a próxima data com base na frequência
 const calculateNextDate = (currentDate, frequency) => {
@@ -106,6 +108,7 @@ class TransactionService {
 
         // --- 6. Aplicar impacto financeiro para a transação mestra se 'cleared' ---
         if (masterTransaction.status === 'cleared') {
+            // Use o helper importado
             await applyTransactionImpact(masterTransaction, { transaction: t, account: account, invoice: invoice });
         }
 
@@ -263,7 +266,7 @@ class TransactionService {
       include: [
         { model: db.Account, as: 'account', attributes: ['id', 'name', 'type', 'brand', 'finalDigits'] },
         { model: db.Category, as: 'category', attributes: ['id', 'name', 'color', 'icon'], required: false },
-        { model: db.Transaction, as: 'parent', attributes: ['id', 'description', 'amount', 'date', 'installmentCount', 'installmentCurrent'], required: false },
+        { model: db.Transaction, as: 'parent', attributes: ['id', 'description', 'amount', 'date', 'recurring', 'installment', 'installmentCount', 'installmentCurrent'], required: false },
         { model: db.Transaction, as: 'children', attributes: ['id', 'description', 'amount', 'date', 'status', 'installmentCurrent'], required: false, order: [['date', 'ASC']] },
       ],
        order: otherOptions.order || [['date', 'DESC'], ['createdAt', 'DESC']],
@@ -350,6 +353,7 @@ class TransactionService {
     await db.sequelize.transaction(async (t) => {
         // 2. Reverter impacto financeiro anterior (se status era 'cleared' e dados financeiros mudaram)
         if (oldStatus === 'cleared' && (newStatus !== 'cleared' || newAmount !== oldAmount || newType !== oldType || newAccountId !== oldAccountId || newInvoiceId !== oldInvoiceId)) {
+            // Use o helper importado
             await revertTransactionImpact(transaction, { transaction: t, account: transaction.account, invoice: transaction.invoice });
         }
 
@@ -361,12 +365,13 @@ class TransactionService {
             forbiddenUpdates.forEach(field => delete updateData[field]); // Remove os campos de série explicitamente para evitar que sejam atualizados
         }
         // Garante que campos de recorrência/parcelamento não sejam setados em não-mestras
-        if (!transaction.recurring && (updateData.frequency !== undefined || updateData.recurringStartDate !== undefined)) {
-            delete updateData.frequency; delete updateData.recurringStartDate;
-        }
         if (!transaction.installment && (updateData.installmentCount !== undefined || updateData.installmentUnit !== undefined || updateData.installmentCurrent !== undefined)) { // Incluir installmentCurrent
             delete updateData.installmentCount; delete updateData.installmentUnit; delete updateData.installmentCurrent;
         }
+         // Garante que campos de recorrência não sejam setados em não-mestras
+         if (!transaction.recurring && (updateData.frequency !== undefined || updateData.recurringStartDate !== undefined)) {
+             delete updateData.frequency; delete updateData.recurringStartDate;
+         }
 
 
         // 4. Se accountId ou invoiceId mudaram, verificar validade do novo ID
@@ -406,6 +411,7 @@ class TransactionService {
                 type: newType,          // Garante que o tipo é o novo
             };
             if (!updatedTransactionForImpact.account) throw new ApiError(500, 'Conta destino para atualização não encontrada.');
+            // Use o helper importado
             await applyTransactionImpact(updatedTransactionForImpact, { transaction: t, account: targetAccount, invoice: targetInvoice });
         }
     }); // Fim da transação Sequelize
@@ -438,6 +444,7 @@ class TransactionService {
     await db.sequelize.transaction(async (t) => {
         // 1. Reverter impacto financeiro (se 'cleared')
         if (transaction.status === 'cleared') {
+            // Use o helper importado
             await revertTransactionImpact(transaction, { transaction: t, account: transaction.account, invoice: transaction.invoice });
         }
 
@@ -454,6 +461,7 @@ class TransactionService {
                          // Precisa buscar a conta e fatura associadas para o helper revertTransactionImpact
                          const childAccount = await child.getAccount({transaction: t});
                          const childInvoice = await child.getInvoice({transaction: t});
+                        // Use o helper importado
                         await revertTransactionImpact(child, { transaction: t, account: childAccount, invoice: childInvoice });
                     }
                 }
@@ -490,6 +498,7 @@ class TransactionService {
                 try {
                     await transaction.update({ status: 'cleared' }, { transaction: t });
                     // transaction.account e transaction.invoice já estão incluídos na busca acima
+                    // Use o helper importado
                     await applyTransactionImpact(transaction, { transaction: t, account: transaction.account, invoice: transaction.invoice });
                     clearedCount++;
                 } catch (error) {
