@@ -1,13 +1,13 @@
-// src/modules/validation/schemas/transaction.validation.js (CORRIGIDO: Mensagem no nível do when)
+// src/modules/validation/schemas/transaction.validation.js (AJUSTADO: Lógica de installmentCurrent no Joi)
 
 const Joi = require('joi'); // Variável Joi importada
 
-// ... (transactionIdParam, getTransactionsQuery - mantidos) ...
-
+// Esquema base para o ID da transação nos parâmetros
 const transactionIdParam = Joi.object({
   transactionId: Joi.number().integer().positive().required(),
 });
 
+// Esquema para os query parameters na busca de transações
 const getTransactionsQuery = Joi.object({
   type: Joi.string().valid('income', 'expense').optional(),
   status: Joi.string().valid('pending', 'cleared', 'scheduled').optional(),
@@ -62,12 +62,20 @@ const createTransaction = Joi.object({
       then: Joi.number().integer().min(1).required(),
       otherwise: Joi.optional().allow(null),
   }),
-   installmentCurrent: Joi.number().integer().min(1).optional().allow(null).default(1),
    installmentUnit: Joi.string().when('installment', {
        is: true,
        then: Joi.string().trim().min(1).required(),
        otherwise: Joi.optional().allow(null),
    }),
+
+   // installmentCurrent SÓ É PERMITIDO se 'installment' for true
+   // REMOVIDO o .default(1) daqui
+   installmentCurrent: Joi.number().integer().min(1).optional().allow(null).when('installment', {
+       is: false, // Se installment for false...
+       then: Joi.forbidden(), // ...então installmentCurrent é proibido
+       otherwise: Joi.optional().allow(null), // Caso contrário (installment é true), é opcional e pode ser null
+   }),
+
 
   observation: Joi.string().trim().allow('', null).optional(),
   status: Joi.string().valid('pending', 'cleared', 'scheduled').optional(),
@@ -79,7 +87,7 @@ const createTransaction = Joi.object({
   // .then(Joi.forbidden()) nega o objeto se a condição for satisfeita.
   // Mensagem personalizada definida usando .options().messages() no nível do when.
 }).when(Joi.object({ recurring: true, installment: true }).unknown(), {
-    then: Joi.forbidden(), // <-- Removido .message() daqui
+    then: Joi.forbidden(),
     // Mensagem personalizada para a condição 'when' que resulta em 'forbidden'
 }).options({
     messages: { // Mensagens no nível do objeto
@@ -110,8 +118,14 @@ const updateTransaction = Joi.object({
   recurringStartDate: Joi.date().iso().when('recurring', { is: true, then: Joi.required(), otherwise: Joi.optional().allow(null) }).optional().allow(null),
 
   installmentCount: Joi.number().integer().min(1).when('installment', { is: true, then: Joi.number().integer().min(1).required(), otherwise: Joi.optional().allow(null) }).optional().allow(null),
-  installmentCurrent: Joi.number().integer().min(1).optional().allow(null),
   installmentUnit: Joi.string().when('installment', { is: true, then: Joi.string().trim().min(1).required(), otherwise: Joi.optional().allow(null) }).optional().allow(null),
+
+  // installmentCurrent SÓ É PERMITIDO se 'installment' for true (na atualização)
+  installmentCurrent: Joi.number().integer().min(1).optional().allow(null).when('installment', {
+      is: false,
+      then: Joi.forbidden(),
+      otherwise: Joi.optional().allow(null),
+  }),
 
   observation: Joi.string().trim().allow('', null).optional(),
   status: Joi.string().valid('pending', 'cleared', 'scheduled').optional(),
