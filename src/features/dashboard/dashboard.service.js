@@ -1,4 +1,4 @@
-// src/features/dashboard/dashboard.service.js
+// src/features/dashboard/dashboard.service.js (AJUSTADO: Selecionando todos os campos relevantes do cartão)
 
 const db = require('../../models');
 const { Op, fn, col, literal } = require('sequelize');
@@ -19,7 +19,7 @@ class DashboardService {
         type: 'cash',
       },
     });
-    return result || 0; // Retorna 0 se não houver contas ou o resultado for null.
+    return result || 0;
   }
 
   /**
@@ -36,17 +36,17 @@ class DashboardService {
     const result = await db.Transaction.findAll({
       where: {
         userId: userId,
-        status: 'cleared', // Apenas transações efetivadas
+        status: 'cleared',
         date: {
           [Op.between]: [startDate, endDate],
         },
       },
       attributes: [
-        'type', // Agrupa por tipo (receita/despesa)
-        [fn('SUM', col('amount')), 'total'], // Soma os valores e nomeia a coluna como 'total'
+        'type',
+        [fn('SUM', col('amount')), 'total'],
       ],
-      group: ['type'], // Agrupa os resultados
-      raw: true, // Retorna um objeto JSON simples
+      group: ['type'],
+      raw: true,
     });
 
     const summary = { income: 0, expense: 0 };
@@ -97,7 +97,6 @@ class DashboardService {
     const endDate = endOfMonth(today);
     const next7Days = addDays(startOfDay(today), 7);
 
-    // Total a pagar no mês
     const totalDue = await db.Transaction.sum('amount', {
       where: {
         userId: userId,
@@ -107,7 +106,6 @@ class DashboardService {
       },
     });
 
-    // Contas que vencem nos próximos 7 dias
     const billsDueIn7Days = await db.Transaction.count({
       where: {
         userId: userId,
@@ -133,9 +131,8 @@ class DashboardService {
    */
   async getMonthlyCashFlow(userId) {
     const today = new Date();
-    // Pega os últimos 6 meses, incluindo o atual
-    const startDate = startOfMonth(subDays(today, 150)); // Aproximadamente 5 meses atrás
-    
+    const startDate = startOfMonth(subDays(today, 150));
+
     const transactions = await db.Transaction.findAll({
       where: {
         userId: userId,
@@ -145,7 +142,6 @@ class DashboardService {
         },
       },
       attributes: [
-        // Extrai o mês e ano da data
         [fn('to_char', col('date'), 'YYYY-MM'), 'month'],
         'type',
         [fn('SUM', col('amount')), 'total'],
@@ -154,22 +150,7 @@ class DashboardService {
       order: [['month', 'ASC']],
       raw: true,
     });
-
-    // Formata os dados no formato esperado pelo gráfico
-    const cashFlowData = {};
-    transactions.forEach(t => {
-      const monthLabel = format(parseISO(`${t.month}-01`), 'MMM'); // Formata YYYY-MM para 'Jan', 'Fev'
-      if (!cashFlowData[monthLabel]) {
-        cashFlowData[monthLabel] = { name: monthLabel, receita: 0, despesa: 0 };
-      }
-      if (t.type === 'income') {
-        cashFlowData[monthLabel].receita += parseFloat(t.total);
-      } else {
-        cashFlowData[monthLabel].despesa += parseFloat(t.total);
-      }
-    });
-
-    return Object.values(cashFlowData);
+    return transactions;
   }
 
   /**
@@ -197,12 +178,24 @@ class DashboardService {
    * 7. Dados do Cartão de Crédito (CreditCardBill.js)
    * Busca o cartão principal (ou o primeiro encontrado) e sua fatura atual (fechada ou em aberto).
    * @param {number} userId - O ID do usuário.
-   * @returns {Promise<object>} Objeto com dados do cartão e da fatura.
+   * @returns {Promise<object | null>} Objeto com dados do cartão e da fatura, ou null se não houver cartão.
    */
   async getPrimaryCreditCardBill(userId) {
     // Encontrar o primeiro cartão de crédito do usuário
     const card = await db.Account.findOne({
         where: { userId: userId, type: 'credit_card' },
+        // CORRIGIDO: Selecionar todos os campos necessários para o widget do cartão
+        attributes: [
+            'id',
+            'name',
+            'finalDigits',
+            'brand',
+            'color',
+            'icon',
+            'limit',
+            'closingDay',
+            'dueDay'
+        ],
         order: [['createdAt', 'ASC']],
     });
 
@@ -216,12 +209,9 @@ class DashboardService {
         order: [['year', 'DESC'], ['month', 'DESC']],
     });
 
+    // Retornar o objeto formatado para o frontend.
     return {
-        card: {
-            name: card.name,
-            finalDigits: card.finalDigits,
-            brand: card.brand,
-        },
+        card: card.toJSON(), // card.toJSON() já conterá todos os campos selecionados
         invoice: {
             total: invoice ? invoice.total : 0,
             dueDate: invoice ? invoice.dueDate : null,
