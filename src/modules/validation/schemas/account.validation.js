@@ -1,4 +1,4 @@
-// src/modules/validation/schemas/account.validation.js
+// src/modules/validation/schemas/account.validation.js (AJUSTADO: Permitindo null para color/icon)
 
 const Joi = require('joi');
 
@@ -55,19 +55,22 @@ const createAccount = baseAccountSchema.keys({
         then: Joi.required(),
         otherwise: Joi.forbidden(),
     }),
-    color: Joi.string().trim().optional().when('type', { // Cor é opcional para cartão
+    // CORRIGIDO: Adicionado .allow(null, '') para permitir nulo ou string vazia
+    color: Joi.string().trim().optional().allow(null, '').when('type', { // Cor é opcional para cartão
         is: 'credit_card',
-        then: Joi.optional(),
+        then: Joi.optional().allow(null, ''),
         otherwise: Joi.forbidden(),
     }),
-     icon: Joi.string().trim().optional().when('type', { // Ícone é opcional para cartão
+    // CORRIGIDO: Adicionado .allow(null, '') para permitir nulo ou string vazia
+     icon: Joi.string().trim().optional().allow(null, '').when('type', { // Ícone é opcional para cartão
         is: 'credit_card',
-        then: Joi.optional(),
+        then: Joi.optional().allow(null, ''),
         otherwise: Joi.forbidden(),
      }),
 }).min(3); // Garante que pelo menos 'name', 'type' e um dos campos condicionais (ou currentBalance) estejam presentes
 
 // Esquema para atualização de conta, estendendo o base e permitindo campos opcionais
+// CORREÇÃO TAMBÉM NO UPDATE: Permitir nulo para remover valor existente.
 const updateAccount = baseAccountSchema.keys({
   name: Joi.string().trim().min(3).max(100).optional(), // Opcional na atualização
   type: Joi.string().valid('cash', 'credit_card').optional(), // Opcional na atualização
@@ -98,12 +101,9 @@ const updateAccount = baseAccountSchema.keys({
         then: Joi.optional(),
         otherwise: Joi.forbidden(),
   }),
-  color: Joi.string().trim().optional(), // Opcional independente do type (para permitir remover cor)
-  icon: Joi.string().trim().optional(),  // Opcional independente do type (para permitir remover icone)
-
-  // TODO: Adicionar validação para garantir que, se type for credit_card, pelo menos um dos campos específicos de credit_card esteja presente OU o campo type esteja sendo alterado para credit_card. Isso é complexo com Joi e pode ser mais fácil validar no Service.
-  // Exemplo simplificado: Se type for 'credit_card' no body, exigir campos de cartão.
-  // Ou confiar na validação do modelo Sequelize após a tentativa de update.
+  // CORRIGIDO: Adicionado .allow(null, '') para permitir nulo ou string vazia na atualização
+  color: Joi.string().trim().optional().allow(null, ''), // Opcional independente do type (para permitir remover cor)
+  icon: Joi.string().trim().optional().allow(null, ''),  // Opcional independente do type (para permitir remover icone)
 
 }).min(1); // Garante que pelo menos um campo esteja presente para atualização
 

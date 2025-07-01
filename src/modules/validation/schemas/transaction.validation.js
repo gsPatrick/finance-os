@@ -14,11 +14,10 @@ const getTransactionsQuery = Joi.object({
 
   // CORRIGIDO: 'status' agora aceita uma string OU um array de strings permitidas
   status: Joi.alternatives().try(
-      Joi.string().valid('pending', 'cleared', 'scheduled'), // Aceita uma única string
-      Joi.array().items(Joi.string().valid('pending', 'cleared', 'scheduled')) // Aceita um array de strings
+      Joi.string().valid('pending', 'cleared', 'scheduled'), // Permite uma única string
+      Joi.array().items(Joi.string().valid('pending', 'cleared', 'scheduled')) // Permite um array de strings
   ).optional(),
 
-  // 'recurring' espera boolean. O frontend deve mapear 'yes'/'no' para true/false.
   recurring: Joi.boolean().optional(),
 
   // 'installment' espera boolean. O frontend deve mapear 'yes'/'no' para true/false.
